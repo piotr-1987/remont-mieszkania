@@ -308,24 +308,49 @@
     });
   }
 
-  // Pokazanie podsumowania kosztów wg osoby ponoszącej wydatek
-  function pokazPodsumowanie() {
-    const filtrowane = filtrujDane();
-    let sumaMarta = 0;
-    let sumaPiotr = 0;
+  // Pokazanie podsumowania kosztów wg osoby ponoszącej wydatek, pomieszczeń i kategorii
+function pokazPodsumowanie() {
+  const filtrowane = filtrujDane();
 
-    filtrowane.forEach(w => {
-      if (w.ktoPoniosl === 'Marta') sumaMarta += w.kwota;
-      else if (w.ktoPoniosl === 'Piotr') sumaPiotr += w.kwota;
-    });
+  // Suma wg osoby
+  let sumaMarta = 0;
+  let sumaPiotr = 0;
 
-    podsumowanieEl.innerHTML = `
-      <h3>Podsumowanie kosztów wg osoby ponoszącej wydatek:</h3>
-      <p><strong>Marta:</strong> ${sumaMarta.toFixed(2)} zł</p>
-      <p><strong>Piotr:</strong> ${sumaPiotr.toFixed(2)} zł</p>
-      <p><strong>Razem:</strong> ${(sumaMarta + sumaPiotr).toFixed(2)} zł</p>
-    `;
-  }
+  // Suma wg pomieszczeń
+  const sumaPomieszczenia = {};
+
+  // Suma wg kategorii
+  const sumaKategorii = {};
+
+  filtrowane.forEach(w => {
+    if (w.ktoPoniosl === 'Marta') sumaMarta += w.kwota;
+    else if (w.ktoPoniosl === 'Piotr') sumaPiotr += w.kwota;
+
+    if (!sumaPomieszczenia[w.pomieszczenie]) sumaPomieszczenia[w.pomieszczenie] = 0;
+    sumaPomieszczenia[w.pomieszczenie] += w.kwota;
+
+    if (!sumaKategorii[w.kategoria]) sumaKategorii[w.kategoria] = 0;
+    sumaKategorii[w.kategoria] += w.kwota;
+  });
+
+  podsumowanieDiv.innerHTML = `
+    <h3>Podsumowanie kosztów wg osoby ponoszącej wydatek:</h3>
+    <p><strong>Marta:</strong> ${sumaMarta.toFixed(2)} zł</p>
+    <p><strong>Piotr:</strong> ${sumaPiotr.toFixed(2)} zł</p>
+    <p><strong>Razem:</strong> ${(sumaMarta + sumaPiotr).toFixed(2)} zł</p>
+
+    <h3>Podsumowanie kosztów wg pomieszczeń:</h3>
+    <ul>
+      ${Object.entries(sumaPomieszczenia).map(([pom, kwota]) => `<li><strong>${pom}:</strong> ${kwota.toFixed(2)} zł</li>`).join('')}
+    </ul>
+
+    <h3>Podsumowanie kosztów wg kategorii:</h3>
+    <ul>
+      ${Object.entries(sumaKategorii).map(([kat, kwota]) => `<li><strong>${kat}:</strong> ${kwota.toFixed(2)} zł</li>`).join('')}
+    </ul>
+  `;
+}
+
 
   // Rysowanie wykresu słupkowego - wydatki w miesiącach wg osoby
   function rysujWykres() {
