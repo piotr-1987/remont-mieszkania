@@ -1,175 +1,324 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8">
-  <title>Wydatki - Mieszkanie 56</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <style>
-    body { font-family: Arial; padding: 20px; background: #f4f4f4; }
-    h1 { text-align: center; }
-    .form-section, .table-section, .chart-section, .export-section, .filter-section {
-      background: white; padding: 20px; margin: 20px auto; border-radius: 8px; max-width: 1200px;
-    }
-    input, select, button { margin: 5px; padding: 5px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-    canvas { width: 100%; max-height: 400px; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Remont mieszkania nr 56 - wydatki</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; background: #f9f9f9; }
+  label { display: block; margin-top: 10px; }
+  input, select { width: 200px; padding: 5px; margin-top: 3px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+  th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+  th { background: #eee; }
+  button { margin-top: 10px; padding: 8px 12px; cursor: pointer; }
+  .filtry { margin-top: 20px; background: white; padding: 10px; border-radius: 6px; }
+  #podsumowanie { margin-top: 20px; background: #fff; padding: 10px; border-radius: 6px; }
+  .btn-small { padding: 4px 8px; font-size: 0.9em; margin-right: 5px; }
+  .error { color: red; margin-top: 5px; }
+  canvas { background: white; border: 1px solid #ccc; margin-top: 20px; border-radius: 6px; }
+</style>
 </head>
 <body>
-  <h1>Wydatki remontowe – Mieszkanie 56, Sielskie Podolany</h1>
 
-  <div class="form-section">
-    <h2>Dodaj wydatek</h2>
-    <input type="date" id="data">
-    <input type="number" id="kwota" placeholder="Kwota (zł)">
-    <input type="text" id="typ" placeholder="Typ">
-    <input type="text" id="nazwa" placeholder="Nazwa produktu">
-    <input type="text" id="model" placeholder="Model">
-    <input type="text" id="dokument" placeholder="Nr dokumentu">
-    <select id="pomieszczenie">
-      <option value="">Pomieszczenie</option>
+<h1>Remont mieszkania nr 56 - wydatki</h1>
+
+<form id="form-wydatek">
+  <label>Kwota (zł):
+    <input type="number" id="kwota" step="0.01" min="0" required />
+  </label>
+  <label>Data zakupu:
+    <input type="date" id="data" required />
+  </label>
+  <label>Pomieszczenie:
+    <select id="pomieszczenie" required>
+      <option value="" disabled selected>Wybierz</option>
       <option>Aneks kuchenny</option>
       <option>Łazienka</option>
       <option>Sypialnia</option>
       <option>Ogród</option>
+      <option>Inne</option>
     </select>
-    <select id="kategoria">
-      <option value="">Kategoria</option>
-      <option>Wyposażenie/Sprzęt</option>
+  </label>
+  <label>Kategoria:
+    <select id="kategoria" required>
+      <option value="" disabled selected>Wybierz</option>
+      <option>Wyposażenie / sprzęt</option>
       <option>Materiał budowlany</option>
       <option>Robocizna</option>
+      <option>Inne</option>
     </select>
-    <button onclick="dodajWydatek()">Dodaj</button>
-  </div>
+  </label>
+  <label>Typ / nazwa / model produktu:
+    <input type="text" id="produkt" placeholder="np. Farba Śnieżka, Model X" required />
+  </label>
+  <label>Numer dokumentu / paragonu:
+    <input type="text" id="numer-dokumentu" placeholder="np. FV12345" />
+  </label>
+  <label>Kto dodał:
+    <select id="kto-dodal" required>
+      <option value="" disabled selected>Wybierz</option>
+      <option>Marta</option>
+      <option>Piotr</option>
+    </select>
+  </label>
+  <label>Kto poniósł wydatek:
+    <select id="kto-poniosl" required>
+      <option value="" disabled selected>Wybierz</option>
+      <option>Marta</option>
+      <option>Piotr</option>
+    </select>
+  </label>
+  <button type="submit">Dodaj wydatek</button>
+  <div class="error" id="error-msg"></div>
+</form>
 
-  <div class="filter-section">
-    <h2>Filtruj dane</h2>
-    <input type="month" id="filtrData">
-    <select id="filtrPomieszczenie"><option value="">Pomieszczenie</option><option>Aneks kuchenny</option><option>Łazienka</option><option>Sypialnia</option><option>Ogród</option></select>
-    <select id="filtrKategoria"><option value="">Kategoria</option><option>Wyposażenie/Sprzęt</option><option>Materiał budowlany</option><option>Robocizna</option></select>
-    <input type="text" id="filtrNazwa" placeholder="Nazwa produktu">
-    <button onclick="filtruj()">Zastosuj</button>
-  </div>
+<div class="filtry">
+  <h3>Filtry</h3>
+  <label>Data od:
+    <input type="date" id="filter-data-od" />
+  </label>
+  <label>Data do:
+    <input type="date" id="filter-data-do" />
+  </label>
+  <label>Pomieszczenie:
+    <select id="filter-pomieszczenie">
+      <option value="">Wszyscy</option>
+      <option>Aneks kuchenny</option>
+      <option>Łazienka</option>
+      <option>Sypialnia</option>
+      <option>Ogród</option>
+      <option>Inne</option>
+    </select>
+  </label>
+  <label>Kategoria:
+    <select id="filter-kategoria">
+      <option value="">Wszyscy</option>
+      <option>Wyposażenie / sprzęt</option>
+      <option>Materiał budowlany</option>
+      <option>Robocizna</option>
+      <option>Inne</option>
+    </select>
+  </label>
+  <label>Kto poniósł wydatek:
+    <select id="filter-kto-poniosl">
+      <option value="">Wszyscy</option>
+      <option>Marta</option>
+      <option>Piotr</option>
+    </select>
+  </label>
+</div>
 
-  <div class="table-section">
-    <h2>Lista wydatków</h2>
-    <table id="tabela">
-      <thead><tr><th>Data</th><th>Kwota</th><th>Typ</th><th>Nazwa</th><th>Model</th><th>Nr dokumentu</th><th>Pomieszczenie</th><th>Kategoria</th><th>Akcje</th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
+<table id="tabela-wydatkow">
+  <thead>
+    <tr>
+      <th>Kwota (zł)</th>
+      <th>Data</th>
+      <th>Pomieszczenie</th>
+      <th>Kategoria</th>
+      <th>Produkt</th>
+      <th>Nr dokumentu</th>
+      <th>Kto dodał</th>
+      <th>Kto poniósł</th>
+      <th>Akcje</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
 
-  <div class="chart-section">
-    <h2>Wykres wydatków w czasie</h2>
-    <canvas id="chart"></canvas>
-  </div>
+<div id="podsumowanie"></div>
 
-  <div class="export-section">
-    <h2>Eksportuj dane</h2>
-    <button onclick="eksportExcel()">Eksport Excel</button>
-    <button onclick="window.print()">Eksport PDF</button>
-  </div>
+<canvas id="wykres-wydatkow" width="900" height="400"></canvas>
 
-  <script>
-    let dane = [];
-    let edytowanyIndex = -1;
+<button id="exportExcel">Export Excel</button>
+<button id="exportPDF">Export PDF</button>
+<br><br>
 
-    function dodajWydatek() {
-      const w = {
-        data: document.getElementById('data').value,
-        kwota: parseFloat(document.getElementById('kwota').value || 0),
-        typ: document.getElementById('typ').value,
-        nazwa: document.getElementById('nazwa').value,
-        model: document.getElementById('model').value,
-        dokument: document.getElementById('dokument').value,
-        pomieszczenie: document.getElementById('pomieszczenie').value,
-        kategoria: document.getElementById('kategoria').value
-      };
-      if (edytowanyIndex > -1) {
-        dane[edytowanyIndex] = w;
-        edytowanyIndex = -1;
-      } else {
-        dane.push(w);
-      }
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+(() => {
+  const storageKey = 'wydatkiRemont';
+
+  let dane = [];
+  let edytowanyIndex = -1;
+  let chart;
+
+  // Elementy formularza
+  const form = document.getElementById('form-wydatek');
+  const kwotaInput = document.getElementById('kwota');
+  const dataInput = document.getElementById('data');
+  const pomieszczenieInput = document.getElementById('pomieszczenie');
+  const kategoriaInput = document.getElementById('kategoria');
+  const produktInput = document.getElementById('produkt');
+  const numerDokumentuInput = document.getElementById('numer-dokumentu');
+  const ktoDodalInput = document.getElementById('kto-dodal');
+  const ktoPonioslInput = document.getElementById('kto-poniosl');
+  const errorMsg = document.getElementById('error-msg');
+
+  // Filtry
+  const filterDataOd = document.getElementById('filter-data-od');
+  const filterDataDo = document.getElementById('filter-data-do');
+  const filterPomieszczenie = document.getElementById('filter-pomieszczenie');
+  const filterKategoria = document.getElementById('filter-kategoria');
+  const filterKtoPoniosl = document.getElementById('filter-kto-poniosl');
+
+  // Tabela i podsumowanie
+  const tabelaBody = document.querySelector('#tabela-wydatkow tbody');
+  const podsumowanieEl = document.getElementById('podsumowanie');
+  const canvas = document.getElementById('wykres-wydatkow');
+
+  // Wczytaj dane z localStorage
+  function wczytajDane() {
+    const raw = localStorage.getItem(storageKey);
+    if (raw) {
+      dane = JSON.parse(raw);
+    }
+  }
+
+  // Zapisz dane do localStorage
+  function zapiszDane() {
+    localStorage.setItem(storageKey, JSON.stringify(dane));
+  }
+
+  // Walidacja formularza
+  function walidujFormularz() {
+    errorMsg.textContent = '';
+    if (kwotaInput.value === '' || Number(kwotaInput.value) <= 0) {
+      errorMsg.textContent = 'Wprowadź poprawną kwotę większą od 0.';
+      return false;
+    }
+    if (!dataInput.value) {
+      errorMsg.textContent = 'Wprowadź datę zakupu.';
+      return false;
+    }
+    if (!pomieszczenieInput.value) {
+      errorMsg.textContent = 'Wybierz pomieszczenie.';
+      return false;
+    }
+    if (!kategoriaInput.value) {
+      errorMsg.textContent = 'Wybierz kategorię.';
+      return false;
+    }
+    if (!produktInput.value.trim()) {
+      errorMsg.textContent = 'Wprowadź nazwę produktu.';
+      return false;
+    }
+    if (!ktoDodalInput.value) {
+      errorMsg.textContent = 'Wybierz, kto dodał wydatek.';
+      return false;
+    }
+    if (!ktoPonioslInput.value) {
+      errorMsg.textContent = 'Wybierz, kto poniósł wydatek.';
+      return false;
+    }
+    return true;
+  }
+
+  // Dodaj lub aktualizuj wydatek
+  function dodajWydatek(e) {
+    e.preventDefault();
+    if (!walidujFormularz()) return;
+
+    const wydatek = {
+      kwota: parseFloat(kwotaInput.value),
+      data: dataInput.value,
+      pomieszczenie: pomieszczenieInput.value,
+      kategoria: kategoriaInput.value,
+      produkt: produktInput.value.trim(),
+      numerDokumentu: numerDokumentuInput.value.trim(),
+      ktoDodal: ktoDodalInput.value,
+      ktoPoniosl: ktoPonioslInput.value,
+    };
+
+    if (edytowanyIndex >= 0) {
+      dane[edytowanyIndex] = wydatek;
+      edytowanyIndex = -1;
+    } else {
+      dane.push(wydatek);
+    }
+    zapiszDane();
+    form.reset();
+    errorMsg.textContent = '';
+    rysujTabele();
+    pokazPodsumowanie();
+    rysujWykres();
+  }
+
+  // Usuń wydatek
+  function usunWydatek(index) {
+    if (confirm('Czy na pewno chcesz usunąć ten wydatek?')) {
+      dane.splice(index, 1);
+      zapiszDane();
       rysujTabele();
+      pokazPodsumowanie();
       rysujWykres();
     }
+  }
 
-    function rysujTabele() {
-      const tbody = document.querySelector('#tabela tbody');
-      tbody.innerHTML = '';
-      dane.forEach((w, i) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${w.data}</td><td>${w.kwota.toFixed(2)}</td><td>${w.typ}</td><td>${w.nazwa}</td><td>${w.model}</td><td>${w.dokument}</td><td>${w.pomieszczenie}</td><td>${w.kategoria}</td><td><button onclick="edytuj(${i})">Edytuj</button><button onclick="usun(${i})">Usuń</button></td>`;
-        tbody.appendChild(tr);
-      });
-    }
+  // Edytuj wydatek
+  function edytujWydatek(index) {
+    const w = dane[index];
+    kwotaInput.value = w.kwota;
+    dataInput.value = w.data;
+    pomieszczenieInput.value = w.pomieszczenie;
+    kategoriaInput.value = w.kategoria;
+    produktInput.value = w.produkt;
+    numerDokumentuInput.value = w.numerDokumentu;
+    ktoDodalInput.value = w.ktoDodal;
+    ktoPonioslInput.value = w.ktoPoniosl;
+    edytowanyIndex = index;
+  }
 
-    function edytuj(i) {
-      const w = dane[i];
-      document.getElementById('data').value = w.data;
-      document.getElementById('kwota').value = w.kwota;
-      document.getElementById('typ').value = w.typ;
-      document.getElementById('nazwa').value = w.nazwa;
-      document.getElementById('model').value = w.model;
-      document.getElementById('dokument').value = w.dokument;
-      document.getElementById('pomieszczenie').value = w.pomieszczenie;
-      document.getElementById('kategoria').value = w.kategoria;
-      edytowanyIndex = i;
-    }
+  // Filtrowanie danych wg wybranych kryteriów
+  function filtrujDane() {
+    return dane.filter(w => {
+      if (filterDataOd.value && w.data < filterDataOd.value) return false;
+      if (filterDataDo.value && w.data > filterDataDo.value) return false;
+      if (filterPomieszczenie.value && w.pomieszczenie !== filterPomieszczenie.value) return false;
+      if (filterKategoria.value && w.kategoria !== filterKategoria.value) return false;
+      if (filterKtoPoniosl.value && w.ktoPoniosl !== filterKtoPoniosl.value) return false;
+      return true;
+    });
+  }
 
-    function usun(i) {
-      dane.splice(i, 1);
-      rysujTabele();
-      rysujWykres();
-    }
+  // Rysowanie tabeli z wydatkami
+  function rysujTabele() {
+    const filtrowane = filtrujDane();
+    tabelaBody.innerHTML = '';
+    filtrowane.forEach((w, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${w.kwota.toFixed(2)}</td>
+        <td>${w.data}</td>
+        <td>${w.pomieszczenie}</td>
+        <td>${w.kategoria}</td>
+        <td>${w.produkt}</td>
+        <td>${w.numerDokumentu || '-'}</td>
+        <td>${w.ktoDodal}</td>
+        <td>${w.ktoPoniosl}</td>
+        <td>
+          <button class="btn-small" onclick="edytujWydatek(${dane.indexOf(w)})">Edytuj</button>
+          <button class="btn-small" onclick="usunWydatek(${dane.indexOf(w)})">Usuń</button>
+        </td>
+      `;
+      tabelaBody.appendChild(tr);
+    });
+  }
 
-    function eksportExcel() {
-      const ws = XLSX.utils.json_to_sheet(dane);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Wydatki');
-      XLSX.writeFile(wb, 'wydatki_mieszkanie_56.xlsx');
-    }
+  // Pokazanie podsumowania kosztów wg osoby ponoszącej wydatek
+  function pokazPodsumowanie() {
+    const filtrowane = filtrujDane();
+    let sumaMarta = 0;
+    let sumaPiotr = 0;
 
-    function rysujWykres() {
-      const ctx = document.getElementById('chart').getContext('2d');
-      const dzienniki = {};
-      dane.forEach(w => {
-        if (!dzienniki[w.data]) dzienniki[w.data] = 0;
-        dzienniki[w.data] += w.kwota;
-      });
-      const labels = Object.keys(dzienniki).sort();
-      const values = labels.map(d => dzienniki[d]);
-      if (window.chartInstance) window.chartInstance.destroy();
-      window.chartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [{ label: 'Wydatki (zł)', data: values, fill: false, borderColor: 'blue' }]
-        },
-        options: {
-          scales: { x: { title: { display: true, text: 'Data' } }, y: { beginAtZero: true } }
-        }
-      });
-    }
+    filtrowane.forEach(w => {
+      if (w.ktoPoniosl === 'Marta') sumaMarta += w.kwota;
+      else if (w.ktoPoniosl === 'Piotr') sumaPiotr += w.kwota;
+    });
 
-    function filtruj() {
-      const data = document.getElementById('filtrData').value;
-      const pom = document.getElementById('filtrPomieszczenie').value;
-      const kat = document.getElementById('filtrKategoria').value;
-      const naz = document.getElementById('filtrNazwa').value.toLowerCase();
-
-      const tbody = document.querySelector('#tabela tbody');
-      tbody.innerHTML = '';
-      dane.forEach((w, i) => {
-        if ((data && !w.data.startsWith(data)) || (pom && w.pomieszczenie !== pom) || (kat && w.kategoria !== kat) || (naz && !w.nazwa.toLowerCase().includes(naz))) return;
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${w.data}</td><td>${w.kwota.toFixed(2)}</td><td>${w.typ}</td><td>${w.nazwa}</td><td>${w.model}</td><td>${w.dokument}</td><td>${w.pomieszczenie}</td><td>${w.kategoria}</td><td><button onclick="edytuj(${i})">Edytuj</button><button onclick="usun(${i})">Usuń</button></td>`;
-        tbody.appendChild(tr);
-      });
-    }
-  </script>
-</body>
-</html>
+    podsumowanieEl.innerHTML = `
+      <h3>Podsumowanie kosztów wg osoby ponoszącej wydatek:</h3>
+      <p><strong>Marta:</strong> ${sumaMarta.toFixed(
