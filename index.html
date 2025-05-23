@@ -49,6 +49,7 @@
     th, td {
       padding: 10px;
       border: 1px solid #ccc;
+      text-align: left;
     }
     th {
       background-color: #eee;
@@ -119,7 +120,7 @@
   </form>
 
   <div class="filters">
-    <label>Filtruj po dacie: <input type="month" id="filtrData" /></label>
+    <label>Filtruj po dacie (miesiąc): <input type="month" id="filtrData" /></label>
     <label>Filtruj po pomieszczeniu:
       <select id="filtrPomieszczenie">
         <option value="">Wszystkie</option>
@@ -142,7 +143,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    const scriptURL = 'https://script.google.com/macros/s/AKfycbwevF7bk1Az-BdRy3T_hjehrthn9joYuF9zPl6pQFc7cvTHjetlHhvZ91McPPqkxPo0FQ/exec';
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbxTTJVf4tyLoOtzBkOz1oZM-MJwHhLd1pHKSFLEdB6VkrL3hIXgpLnn4bipKTawyoXAbg/exec';
 
     let dane = [];
 
@@ -150,7 +151,7 @@
       try {
         const resp = await fetch(scriptURL + '?action=get');
         const json = await resp.json();
-        // Załóżmy, że pierwszy wiersz to nagłówki, więc pomijamy
+        // Pomijamy pierwszy wiersz (nagłówki)
         dane = json.slice(1).map(row => ({
           data: row[0],
           typ: row[1],
@@ -158,12 +159,14 @@
           model: row[3],
           pomieszczenie: row[4],
           kategoria: row[5],
-          kwota: parseFloat(row[6]),
+          kwota: parseFloat(row[6]) || 0,
           dokument: row[7],
           dodajacy: row[8],
-          ponoszacy: row[9]
+          kto_placi: row[9]
         }));
-        pokazTabele();
+        pokazTabele(dane);
+        pokazPodsumowanie(dane);
+        rysujWykres(dane);
       } catch (e) {
         alert("Błąd pobierania danych: " + e);
       }
@@ -172,25 +175,24 @@
     async function dodajWydatek() {
       const data = document.getElementById('data').value;
       const kwota = parseFloat(document.getElementById('kwota').value);
-      const nazwa = document.getElementById('nazwa').value;
-      const typ = document.getElementById('typ').value;
+      const nazwa = document.getElementById('nazwa').value.trim();
+      const typ = document.getElementById('typ').value.trim();
       const pomieszczenie = document.getElementById('pomieszczenie').value;
       const kategoria = document.getElementById('kategoria').value;
-      const dokument = document.getElementById('dokument').value;
+      const dokument = document.getElementById('dokument').value.trim();
       const dodajacy = document.getElementById('dodajacy').value;
       const ponoszacy = document.getElementById('ponoszacy').value;
 
       if (!data || isNaN(kwota) || !nazwa) {
-        alert("Uzupełnij wymagane dane.");
+        alert("Uzupełnij wymagane dane: data, kwota, nazwa produktu.");
         return;
       }
 
-      // Wysłanie POST
       try {
         const resp = await fetch(scriptURL, {
           method: 'POST',
           body: JSON.stringify({
-            data, typ, nazwa, model: '', pomieszczenie, kategoria, kwota, dokument, dodajacy, kto_placi: ponoszacy
+            data, typ, nazwa, model: typ, pomieszczenie, kategoria, kwota, dokument, dodajacy, kto_placi: ponoszacy
           }),
           headers: {
             'Content-Type': 'application/json'
@@ -199,10 +201,8 @@
         const text = await resp.text();
         if (text === 'OK') {
           alert('Wydatek dodany pomyślnie');
-          // odśwież dane z arkusza
-          await pobierzDane();
-          // wyczyść formularz
           document.getElementById('formularz').reset();
+          await pobierzDane();
         } else {
           alert('Błąd dodawania wydatku: ' + text);
         }
@@ -211,4 +211,115 @@
       }
     }
 
-    function pokazTabele(filtrowane =
+    function pokazTabele(lista) {
+      const tabela = document.getElementById('tabela');
+      if (lista.length === 0) {
+        tabela.innerHTML = '<tr><td colspan="10" style="text-align:center;">Brak danych</td></tr>';
+        return;
+      }
+
+      let html = '<tr>';
+      html += '<th>Data</th><th>Typ/model</th><th>Nazwa</th><th>Pomieszczenie</th><th>Kategoria</th><th>Kwota (zł)</th><th>Dokument</th><th>Kto dodał</th><th>Kto płaci</th>';
+      html += '</tr>';
+
+      lista.forEach(item => {
+        html += `<tr>
+          <td>${item.data}</td>
+          <td>${item.typ}</td>
+          <td>${item.nazwa}</td>
+          <td>${item.pomieszczenie}</td>
+          <td>${item.kategoria}</td>
+          <td>${item.kwota.toFixed(2)}</td>
+          <td>${item.dokument}</td>
+          <td>${item.dodajacy}</td>
+          <td>${item.kto_placi}</td>
+        </tr>`;
+      });
+
+      tabela.innerHTML = html;
+    }
+
+    function pokazPodsumowanie(lista) {
+      const suma = lista.reduce((acc, el) => acc + el.kwota, 0);
+      const podsumowanie = document.getElementById('podsumowanie');
+      podsumowanie.innerHTML = `<strong>Łączna kwota wydatków: </strong>${suma.toFixed(2)} zł`;
+    }
+
+    function filtruj() {
+      const filtrData = document.getElementById('filtrData').value; // format yyyy-mm
+      const filtrPomieszczenie = document.getElementById('filtrPomieszczenie').value;
+      const filtrNazwa = document.getElementById('filtrNazwa').value.trim().toLowerCase();
+
+      let filtrowane = dane.filter(item => {
+        let pass = true;
+
+        if (filtrData) {
+          pass = pass && item.data.startsWith(filtrData);
+        }
+        if (filtrPomieszczenie) {
+          pass = pass && (item.pomieszczenie === filtrPomieszczenie);
+        }
+        if (filtrNazwa) {
+          pass = pass && item.nazwa.toLowerCase().includes(filtrNazwa);
+        }
+        return pass;
+      });
+
+      pokazTabele(filtrowane);
+      pokazPodsumowanie(filtrowane);
+      rysujWykres(filtrowane);
+    }
+
+    function wyczyscFiltry() {
+      document.getElementById('filtrData').value = '';
+      document.getElementById('filtrPomieszczenie').value = '';
+      document.getElementById('filtrNazwa').value = '';
+      pokazTabele(dane);
+      pokazPodsumowanie(dane);
+      rysujWykres(dane);
+    }
+
+    function rysujWykres(lista) {
+      const ctx = document.getElementById('wykres').getContext('2d');
+
+      // Grupujemy kwoty wg pomieszczeń
+      const sumaPomieszczen = {};
+      lista.forEach(item => {
+        sumaPomieszczen[item.pomieszczenie] = (sumaPomieszczen[item.pomieszczenie] || 0) + item.kwota;
+      });
+
+      const labels = Object.keys(sumaPomieszczen);
+      const dataKwoty = labels.map(l => sumaPomieszczen[l]);
+
+      if (window.chartInstance) {
+        window.chartInstance.destroy();
+      }
+
+      window.chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Kwota wydatków (zł)',
+            data: dataKwoty,
+            backgroundColor: 'rgba(0,123,255,0.7)',
+            borderColor: 'rgba(0,123,255,1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    // Inicjalizacja
+    window.onload = pobierzDane;
+  </script>
+</body>
+</html>
