@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Wydatki - Mieszkanie 56</title>
   <style>
     body {
@@ -56,39 +56,38 @@
     canvas {
       margin-top: 30px;
     }
-     @media (max-width: 768px) {
-  body {
-    margin: 10px;
-    font-size: 16px;
-  }
-  form, .summary, .filters {
-    padding: 15px;
-  }
-  input, select {
-    font-size: 16px;
-  }
-  table {
-    font-size: 14px;
-  }
-  canvas {
-    width: 100% !important;
-    height: auto !important;
-  }
-}
+    @media (max-width: 768px) {
+      body {
+        margin: 10px;
+        font-size: 16px;
+      }
+      form, .summary, .filters {
+        padding: 15px;
+      }
+      input, select {
+        font-size: 16px;
+      }
+      table {
+        font-size: 14px;
+      }
+      canvas {
+        width: 100% !important;
+        height: auto !important;
+      }
+    }
   </style>
-
 </head>
 <body>
-<!-- Obrazek nagłówka -->
-<div style="text-align: center; margin-bottom: 20px;">
-  <img src="https://jakon-inwest.pl/upload/pictures/budynekb.jpg" alt="Wizualizacja Sielskie Podolany" style="max-width: 100%; height: auto; border-radius: 8px;">
-</div>
+  <div style="text-align: center; margin-bottom: 20px;">
+    <img src="https://jakon-inwest.pl/upload/pictures/budynekb.jpg" alt="Wizualizacja Sielskie Podolany" style="max-width: 100%; height: auto; border-radius: 8px;" />
+  </div>
   <h1>Wydatki – Mieszkanie 56, Sielskie Podolany</h1>
+
   <form id="formularz">
-    <label>Data zakupu: <input type="date" id="data"></label>
-    <label>Kwota (zł): <input type="number" id="kwota" step="0.01"></label>
-    <label>Nazwa produktu: <input type="text" id="nazwa"></label>
-    <label>Typ/model: <input type="text" id="typ"></label>
+    <label>Data zakupu: <input type="date" id="data" /></label>
+    <label>Kwota (zł): <input type="number" id="kwota" step="0.01" /></label>
+    <label>Nazwa produktu: <input type="text" id="nazwa" /></label>
+    <label>Typ/model: <input type="text" id="typ" /></label>
     <label>Pomieszczenie:
       <select id="pomieszczenie">
         <option>Aneks kuchenny</option>
@@ -103,14 +102,14 @@
         <option>Materiał budowlany/robocizna</option>
       </select>
     </label>
-    <label>Numer dokumentu/Paragonu: <input type="text" id="dokument"></label>
-    <label>Kto dodał: 
+    <label>Numer dokumentu/Paragonu: <input type="text" id="dokument" /></label>
+    <label>Kto dodał:
       <select id="dodajacy">
         <option>Marta</option>
         <option>Piotr</option>
       </select>
     </label>
-    <label>Kto poniósł koszt: 
+    <label>Kto poniósł koszt:
       <select id="ponoszacy">
         <option>Marta</option>
         <option>Piotr</option>
@@ -120,7 +119,7 @@
   </form>
 
   <div class="filters">
-    <label>Filtruj po dacie: <input type="month" id="filtrData"></label>
+    <label>Filtruj po dacie: <input type="month" id="filtrData" /></label>
     <label>Filtruj po pomieszczeniu:
       <select id="filtrPomieszczenie">
         <option value="">Wszystkie</option>
@@ -130,7 +129,7 @@
         <option>Ogród</option>
       </select>
     </label>
-    <label>Filtruj po nazwie produktu: <input type="text" id="filtrNazwa"></label>
+    <label>Filtruj po nazwie produktu: <input type="text" id="filtrNazwa" /></label>
     <button onclick="filtruj()">Zastosuj filtr</button>
     <button onclick="wyczyscFiltry()">Wyczyść filtry</button>
   </div>
@@ -143,13 +142,34 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    let dane = JSON.parse(localStorage.getItem('wydatki') || '[]');
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbwevF7bk1Az-BdRy3T_hjehrthn9joYuF9zPl6pQFc7cvTHjetlHhvZ91McPPqkxPo0FQ/exec';
 
-    function zapiszDane() {
-      localStorage.setItem('wydatki', JSON.stringify(dane));
+    let dane = [];
+
+    async function pobierzDane() {
+      try {
+        const resp = await fetch(scriptURL + '?action=get');
+        const json = await resp.json();
+        // Załóżmy, że pierwszy wiersz to nagłówki, więc pomijamy
+        dane = json.slice(1).map(row => ({
+          data: row[0],
+          typ: row[1],
+          nazwa: row[2],
+          model: row[3],
+          pomieszczenie: row[4],
+          kategoria: row[5],
+          kwota: parseFloat(row[6]),
+          dokument: row[7],
+          dodajacy: row[8],
+          ponoszacy: row[9]
+        }));
+        pokazTabele();
+      } catch (e) {
+        alert("Błąd pobierania danych: " + e);
+      }
     }
 
-    function dodajWydatek() {
+    async function dodajWydatek() {
       const data = document.getElementById('data').value;
       const kwota = parseFloat(document.getElementById('kwota').value);
       const nazwa = document.getElementById('nazwa').value;
@@ -160,90 +180,35 @@
       const dodajacy = document.getElementById('dodajacy').value;
       const ponoszacy = document.getElementById('ponoszacy').value;
 
-      if (!data || isNaN(kwota) || !nazwa) return alert("Uzupełnij wymagane dane.");
+      if (!data || isNaN(kwota) || !nazwa) {
+        alert("Uzupełnij wymagane dane.");
+        return;
+      }
 
-      dane.push({ data, kwota, nazwa, typ, pomieszczenie, kategoria, dokument, dodajacy, ponoszacy });
-      zapiszDane();
-      pokazTabele();
-    }
-
-    function pokazTabele(filtrowane = dane) {
-      const tabela = document.getElementById('tabela');
-      tabela.innerHTML = '<tr><th>Data</th><th>Kwota</th><th>Nazwa</th><th>Typ</th><th>Pomieszczenie</th><th>Kategoria</th><th>Dokument</th><th>Dodał</th><th>Poniósł koszt</th><th>Usuń</th></tr>';
-      filtrowane.forEach((w, i) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${w.data}</td><td>${w.kwota.toFixed(2)}</td><td>${w.nazwa}</td><td>${w.typ}</td><td>${w.pomieszczenie}</td><td>${w.kategoria}</td><td>${w.dokument}</td><td>${w.dodajacy}</td><td>${w.ponoszacy}</td><td><button onclick="usun(${i})">🗑️</button></td>`;
-        tabela.appendChild(tr);
-      });
-      rysujWykres(filtrowane);
-      aktualizujPodsumowanie(filtrowane);
-    }
-
-    function usun(i) {
-      dane.splice(i, 1);
-      zapiszDane();
-      pokazTabele();
-    }
-
-    function filtruj() {
-      const filtrData = document.getElementById('filtrData').value;
-      const filtrPom = document.getElementById('filtrPomieszczenie').value;
-      const filtrNazwa = document.getElementById('filtrNazwa').value.toLowerCase();
-
-      const wynik = dane.filter(w =>
-        (!filtrData || w.data.startsWith(filtrData)) &&
-        (!filtrPom || w.pomieszczenie === filtrPom) &&
-        (!filtrNazwa || w.nazwa.toLowerCase().includes(filtrNazwa))
-      );
-      pokazTabele(wynik);
-    }
-
-    function wyczyscFiltry() {
-      document.getElementById('filtrData').value = '';
-      document.getElementById('filtrPomieszczenie').value = '';
-      document.getElementById('filtrNazwa').value = '';
-      pokazTabele();
-    }
-
-    function aktualizujPodsumowanie(lista) {
-      const podsumowanie = document.getElementById('podsumowanie');
-      const suma = lista.reduce((a,b) => a + b.kwota, 0);
-      const osoby = {};
-      const pokoje = {};
-      const kategorie = {};
-      lista.forEach(w => {
-        osoby[w.ponoszacy] = (osoby[w.ponoszacy] || 0) + w.kwota;
-        pokoje[w.pomieszczenie] = (pokoje[w.pomieszczenie] || 0) + w.kwota;
-        kategorie[w.kategoria] = (kategorie[w.kategoria] || 0) + w.kwota;
-      });
-      podsumowanie.innerHTML = `<p><strong>Całkowite wydatki:</strong> ${suma.toFixed(2)} zł</p>` +
-        `<p><strong>Koszty wg osoby ponoszącej wydatek:</strong><br>${Object.entries(osoby).map(([k,v]) => `${k}: ${v.toFixed(2)} zł`).join('<br>')}</p>` +
-        `<p><strong>Koszty wg pomieszczeń:</strong><br>${Object.entries(pokoje).map(([k,v]) => `${k}: ${v.toFixed(2)} zł`).join('<br>')}</p>` +
-        `<p><strong>Koszty wg kategorii:</strong><br>${Object.entries(kategorie).map(([k,v]) => `${k}: ${v.toFixed(2)} zł`).join('<br>')}</p>`;
-    }
-
-    function rysujWykres(lista) {
-      const ctx = document.getElementById('wykres').getContext('2d');
-      const wgDaty = {};
-      lista.forEach(w => {
-        const miesiac = w.data.substring(0,7);
-        wgDaty[miesiac] = (wgDaty[miesiac] || 0) + w.kwota;
-      });
-      if (window.wykresInstance) window.wykresInstance.destroy();
-      window.wykresInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: Object.keys(wgDaty),
-          datasets: [{
-            label: 'Wydatki miesięczne',
-            data: Object.values(wgDaty),
-            backgroundColor: 'rgba(54, 162, 235, 0.6)'
-          }]
+      // Wysłanie POST
+      try {
+        const resp = await fetch(scriptURL, {
+          method: 'POST',
+          body: JSON.stringify({
+            data, typ, nazwa, model: '', pomieszczenie, kategoria, kwota, dokument, dodajacy, kto_placi: ponoszacy
+          }),
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        const text = await resp.text();
+        if (text === 'OK') {
+          alert('Wydatek dodany pomyślnie');
+          // odśwież dane z arkusza
+          await pobierzDane();
+          // wyczyść formularz
+          document.getElementById('formularz').reset();
+        } else {
+          alert('Błąd dodawania wydatku: ' + text);
         }
-      });
+      } catch (e) {
+        alert('Błąd sieci: ' + e);
+      }
     }
 
-    pokazTabele();
-  </script>
-</body>
-</html>
+    function pokazTabele(filtrowane =
