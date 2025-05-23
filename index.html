@@ -28,7 +28,6 @@
       width: 100%;
       padding: 8px;
       margin-top: 5px;
-      box-sizing: border-box;
     }
     button {
       margin-top: 15px;
@@ -119,7 +118,7 @@
   </form>
 
   <div class="filters">
-    <label>Filtruj po dacie (miesiąc): <input type="month" id="filtrData" /></label>
+    <label>Filtruj po dacie: <input type="month" id="filtrData" /></label>
     <label>Filtruj po pomieszczeniu:
       <select id="filtrPomieszczenie">
         <option value="">Wszystkie</option>
@@ -142,14 +141,25 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    const scriptURL = 'https://script.google.com/macros/s/AKfycbxTTJVf4tyLoOtzBkOz1oZM-MJwHhLd1pHKSFLEdB6VkrL3hIXgpLnn4bipKTawyoXAbg/exec';
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbyRCfCb7RgLcnS_Zek_zDqoXk9aISl0UsAmbnNE17GRodOFBFX-hJ2AMAY4_cwRlaSK7g/exec';
 
     let dane = [];
 
     async function pobierzDane() {
       try {
         const resp = await fetch(scriptURL + '?action=getData');
-        const json = await resp.json();
+        const text = await resp.text();
+        let json;
+        try {
+          json = JSON.parse(text);
+        } catch (e) {
+          alert('Błąd parsowania odpowiedzi API: ' + e + '\nOdpowiedź: ' + text);
+          return;
+        }
+        if (json.error) {
+          alert("Błąd z API: " + json.error);
+          return;
+        }
         dane = json.slice(1).map(row => ({
           data: row[0],
           typ: row[1],
@@ -160,11 +170,11 @@
           kwota: parseFloat(row[6]),
           dokument: row[7],
           dodajacy: row[8],
-          kto_placi: row[9]
+          ponoszacy: row[9]
         }));
         pokazTabele(dane);
         aktualizujPodsumowanie(dane);
-        aktualizujWykres(dane);
+        rysujWykres(dane);
       } catch (e) {
         alert("Błąd pobierania danych: " + e);
       }
@@ -192,7 +202,9 @@
           body: JSON.stringify({
             data, typ, nazwa, model: typ, pomieszczenie, kategoria, kwota, dokument, dodajacy, kto_placi: ponoszacy
           }),
-          headers: { 'Content-Type': 'application/json' }
+          headers: {
+            'Content-Type': 'application/json'
+          }
         });
         const text = await resp.text();
         if (text === 'OK') {
@@ -209,88 +221,74 @@
 
     function pokazTabele(lista) {
       const tabela = document.getElementById('tabela');
-      if (!lista.length) {
+      if (lista.length === 0) {
         tabela.innerHTML = '<tr><td colspan="10">Brak danych do wyświetlenia</td></tr>';
         return;
       }
-      let html = '<thead><tr>' +
-        '<th>Data</th><th>Typ/model</th><th>Nazwa</th><th>Pomieszczenie</th><th>Kategoria</th><th>Kwota (zł)</th><th>Dokument</th><th>Kto dodał</th><th>Kto płacił</th>' +
-        '</tr></thead><tbody>';
-      lista.forEach(w => {
-        html += `<tr>
-          <td>${w.data}</td>
-          <td>${w.model || w.typ}</td>
-          <td>${w.nazwa}</td>
-          <td>${w.pomieszczenie}</td>
-          <td>${w.kategoria}</td>
-          <td>${w.kwota.toFixed(2)}</td>
-          <td>${w.dokument}</td>
-          <td>${w.dodajacy}</td>
-          <td>${w.kto_placi}</td>
-        </tr>`;
-      });
-      html += '</tbody>';
-      tabela.innerHTML = html;
+      tabela.innerHTML = `
+        <thead>
+          <tr>
+            <th>Data</th><th>Typ/model</th><th>Nazwa</th><th>Pomieszczenie</th><th>Kategoria</th><th>Kwota (zł)</th><th>Dokument</th><th>Kto dodał</th><th>Kto poniósł koszt</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${lista.map(w => `
+            <tr>
+              <td>${w.data}</td><td>${w.typ}</td><td>${w.nazwa}</td><td>${w.pomieszczenie}</td><td>${w.kategoria}</td><td>${w.kwota.toFixed(2)}</td><td>${w.dokument}</td><td>${w.dodajacy}</td><td>${w.ponoszacy}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      `;
     }
 
     function aktualizujPodsumowanie(lista) {
       const podsumowanie = document.getElementById('podsumowanie');
-      const suma = lista.reduce((a, b) => a + (b.kwota || 0), 0);
-
+      const suma = lista.reduce((a,b) => a + b.kwota, 0);
       const osoby = {};
       const pokoje = {};
       const kategorie = {};
-
       lista.forEach(w => {
-        osoby[w.kto_placi || w.ponoszacy] = (osoby[w.kto_placi || w.ponoszacy] || 0) + (w.kwota || 0);
-        pokoje[w.pomieszczenie] = (pokoje[w.pomieszczenie] || 0) + (w.kwota || 0);
-        kategorie[w.kategoria] = (kategorie[w.kategoria] || 0) + (w.kwota || 0);
+        osoby[w.ponoszacy] = (osoby[w.ponoszacy] || 0) + w.kwota;
+        pokoje[w.pomieszczenie] = (pokoje[w.pomieszczenie] || 0) + w.kwota;
+        kategorie[w.kategoria] = (kategorie[w.kategoria] || 0) + w.kwota;
       });
 
-      let html = `<p><strong>Całkowite wydatki:</strong> ${suma.toFixed(2)} zł</p>`;
-
-      html += '<p><strong>Wydatki według osób:</strong><br>';
-      for (const osoba in osoby) {
-        html += `${osoba}: ${osoby[osoba].toFixed(2)} zł<br>`;
+      function obiektDoListy(obj) {
+        return Object.entries(obj)
+          .map(([key, val]) => `<li>${key}: ${val.toFixed(2)} zł</li>`).join('');
       }
-      html += '</p>';
 
-      html += '<p><strong>Wydatki według pomieszczeń:</strong><br>';
-      for (const pokoj in pokoje) {
-        html += `${pokoj}: ${pokoje[pokoj].toFixed(2)} zł<br>`;
-      }
-      html += '</p>';
-
-      html += '<p><strong>Wydatki według kategorii:</strong><br>';
-      for (const kat in kategorie) {
-        html += `${kat}: ${kategorie[kat].toFixed(2)} zł<br>`;
-      }
-      html += '</p>';
-
-      podsumowanie.innerHTML = html;
+      podsumowanie.innerHTML = `
+        <p><strong>Całkowite wydatki:</strong> ${suma.toFixed(2)} zł</p>
+        <p><strong>Według osoby ponoszącej koszt:</strong></p><ul>${obiektDoListy(osoby)}</ul>
+        <p><strong>Według pomieszczenia:</strong></p><ul>${obiektDoListy(pokoje)}</ul>
+        <p><strong>Według kategorii:</strong></p><ul>${obiektDoListy(kategorie)}</ul>
+      `;
     }
 
     function filtruj() {
       const filtrData = document.getElementById('filtrData').value;
-      const filtrPomieszczenie = document.getElementById('filtrPomieszczenie').value.toLowerCase();
+      const filtrPomieszczenie = document.getElementById('filtrPomieszczenie').value;
       const filtrNazwa = document.getElementById('filtrNazwa').value.toLowerCase();
 
-      let listaFiltrowana = dane;
+      let filtrowane = dane;
 
       if (filtrData) {
-        // filtrData to "YYYY-MM"
-        listaFiltrowana = listaFiltrowana.filter(w => w.data && w.data.startsWith(filtrData));
+        // filtrData ma format yyyy-mm, filtrujemy po roku i miesiącu
+        filtrowane = filtrowane.filter(w => {
+          return w.data.startsWith(filtrData);
+        });
       }
       if (filtrPomieszczenie) {
-        listaFiltrowana = listaFiltrowana.filter(w => w.pomieszczenie.toLowerCase() === filtrPomieszczenie);
+        filtrowane = filtrowane.filter(w => w.pomieszczenie === filtrPomieszczenie);
       }
       if (filtrNazwa) {
-        listaFiltrowana = listaFiltrowana.filter(w => w.nazwa.toLowerCase().includes(filtrNazwa));
+        filtrowane = filtrowane.filter(w => w.nazwa.toLowerCase().includes(filtrNazwa));
       }
 
-      pokazTabele(listaFiltrowana);
-      aktualizujPodsumowanie(listaFiltrowana);
-      aktualizujWykres(listaFiltrowana);
+      pokazTabele(filtrowane);
+      aktualizujPodsumowanie(filtrowane);
+      rysujWykres(filtrowane);
     }
 
     function wyczyscFiltry() {
@@ -299,47 +297,50 @@
       document.getElementById('filtrNazwa').value = '';
       pokazTabele(dane);
       aktualizujPodsumowanie(dane);
-      aktualizujWykres(dane);
+      rysujWykres(dane);
     }
 
-    // Wykres - suma wydatków na kategorie
-    let wykres;
+    let chart;
 
-    function aktualizujWykres(lista) {
-      const sumaKategorie = {};
-      lista.forEach(w => {
-        sumaKategorie[w.kategoria] = (sumaKategorie[w.kategoria] || 0) + (w.kwota || 0);
-      });
-
-      const labels = Object.keys(sumaKategorie);
-      const values = labels.map(k => sumaKategorie[k]);
-
+    function rysujWykres(lista) {
       const ctx = document.getElementById('wykres').getContext('2d');
 
-      if (wykres) wykres.destroy();
+      // Grupowanie kwot po kategoriach
+      const sumaKategorii = {};
+      lista.forEach(w => {
+        sumaKategorii[w.kategoria] = (sumaKategorii[w.kategoria] || 0) + w.kwota;
+      });
 
-      wykres = new Chart(ctx, {
+      const labels = Object.keys(sumaKategorii);
+      const dataValues = Object.values(sumaKategorii);
+
+      if(chart) {
+        chart.destroy();
+      }
+
+      chart = new Chart(ctx, {
         type: 'pie',
         data: {
           labels: labels,
           datasets: [{
-            label: 'Wydatki wg kategorii',
-            data: values,
-            backgroundColor: ['#007BFF', '#28a745', '#ffc107', '#dc3545'],
+            label: 'Wydatki wg kategorii (zł)',
+            data: dataValues,
+            backgroundColor: ['#007bff', '#28a745', '#ffc107', '#dc3545', '#17a2b8'],
           }]
         },
         options: {
           responsive: true,
           plugins: {
-            legend: { position: 'bottom' },
-            title: { display: true, text: 'Wydatki według kategorii' }
+            legend: {
+              position: 'bottom',
+            }
           }
         }
       });
     }
 
-    // Inicjalizacja
-    pobierzDane();
+    // Załaduj dane po załadowaniu strony
+    window.onload = pobierzDane;
   </script>
 </body>
 </html>
