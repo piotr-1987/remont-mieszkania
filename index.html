@@ -321,4 +321,162 @@
 
     podsumowanieEl.innerHTML = `
       <h3>Podsumowanie kosztów wg osoby ponoszącej wydatek:</h3>
-      <p><strong>Marta:</strong> ${sumaMarta.toFixed(
+      <p><strong>Marta:</strong> ${sumaMarta.toFixed(2)} zł</p>
+      <p><strong>Piotr:</strong> ${sumaPiotr.toFixed(2)} zł</p>
+      <p><strong>Razem:</strong> ${(sumaMarta + sumaPiotr).toFixed(2)} zł</p>
+    `;
+  }
+
+  // Rysowanie wykresu słupkowego - wydatki w miesiącach wg osoby
+  function rysujWykres() {
+    const filtrowane = filtrujDane();
+
+    // Grupowanie wg roku-miesiąca i osoby
+    const grupy = {};
+    filtrowane.forEach(w => {
+      const date = new Date(w.data);
+      if (isNaN(date)) return;
+      const rokMiesiac = `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2,'0')}`;
+      if (!grupy[rokMiesiac]) {
+        grupy[rokMiesiac] = { Marta: 0, Piotr: 0 };
+      }
+      if (w.ktoPoniosl === 'Marta') grupy[rokMiesiac].Marta += w.kwota;
+      else if (w.ktoPoniosl === 'Piotr') grupy[rokMiesiac].Piotr += w.kwota;
+    });
+
+    const sortedLabels = Object.keys(grupy).sort();
+    const dataMarta = sortedLabels.map(k => grupy[k].Marta);
+    const dataPiotr = sortedLabels.map(k => grupy[k].Piotr);
+
+    if (chart) {
+      chart.destroy();
+    }
+
+    chart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: sortedLabels,
+        datasets: [
+          {
+            label: 'Marta',
+            data: dataMarta,
+            backgroundColor: 'rgba(255, 99, 132, 0.7)',
+          },
+          {
+            label: 'Piotr',
+            data: dataPiotr,
+            backgroundColor: 'rgba(54, 162, 235, 0.7)',
+          },
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'top' },
+          tooltip: { mode: 'index', intersect: false },
+        },
+        scales: {
+          x: { stacked: true },
+          y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Kwota (zł)' } }
+        }
+      }
+    });
+  }
+
+  // Eksport do Excela
+  function exportToExcel() {
+    const filtrowane = filtrujDane();
+    if (filtrowane.length === 0) {
+      alert('Brak danych do eksportu.');
+      return;
+    }
+    const ws_data = [
+      ['Kwota (zł)', 'Data', 'Pomieszczenie', 'Kategoria', 'Produkt', 'Numer dokumentu', 'Kto dodał', 'Kto poniósł']
+    ];
+    filtrowane.forEach(w => {
+      ws_data.push([
+        w.kwota.toFixed(2),
+        w.data,
+        w.pomieszczenie,
+        w.kategoria,
+        w.produkt,
+        w.numerDokumentu || '',
+        w.ktoDodal,
+        w.ktoPoniosl
+      ]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Wydatki');
+    XLSX.writeFile(wb, 'wydatki_remont.xlsx');
+  }
+
+  // Eksport do PDF
+  function exportToPDF() {
+    const filtrowane = filtrujDane();
+    if (filtrowane.length === 0) {
+      alert('Brak danych do eksportu.');
+      return;
+    }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    doc.setFontSize(16);
+    doc.text('Wydatki remontowe mieszkania nr 56', 14, 20);
+
+    const kolumny = ['Kwota (zł)', 'Data', 'Pomieszczenie', 'Kategoria', 'Produkt', 'Nr dokumentu', 'Kto dodał', 'Kto poniósł'];
+    const wiersze = filtrowane.map(w => [
+      w.kwota.toFixed(2),
+      w.data,
+      w.pomieszczenie,
+      w.kategoria,
+      w.produkt,
+      w.numerDokumentu || '',
+      w.ktoDodal,
+      w.ktoPoniosl
+    ]);
+
+    // Rysowanie tabeli (prostą implementacją)
+    let y = 30;
+    doc.setFontSize(10);
+    doc.text(kolumny.join(' | '), 14, y);
+    y += 6;
+
+    wiersze.forEach(row => {
+      const linia = row.join(' | ');
+      if (y > 280) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(linia, 14, y);
+      y += 6;
+    });
+
+    doc.save('wydatki_remont.pdf');
+  }
+
+  // Podpięcie zdarzeń
+  form.addEventListener('submit', dodajWydatek);
+  filterDataOd.addEventListener('change', () => { rysujTabele(); pokazPodsumowanie(); rysujWykres(); });
+  filterDataDo.addEventListener('change', () => { rysujTabele(); pokazPodsumowanie(); rysujWykres(); });
+  filterPomieszczenie.addEventListener('change', () => { rysujTabele(); pokazPodsumowanie(); rysujWykres(); });
+  filterKategoria.addEventListener('change', () => { rysujTabele(); pokazPodsumowanie(); rysujWykres(); });
+  filterKtoPoniosl.addEventListener('change', () => { rysujTabele(); pokazPodsumowanie(); rysujWykres(); });
+
+  window.edytujWydatek = edytujWydatek;
+  window.usunWydatek = usunWydatek;
+
+  document.getElementById('exportExcel').addEventListener('click', exportToExcel);
+  document.getElementById('exportPDF').addEventListener('click', exportToPDF);
+
+  // Inicjalizacja
+  wczytajDane();
+  rysujTabele();
+  pokazPodsumowanie();
+  rysujWykres();
+
+})();
+</script>
+
+</body>
+</html>
