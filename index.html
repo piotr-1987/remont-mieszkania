@@ -28,6 +28,7 @@
       width: 100%;
       padding: 8px;
       margin-top: 5px;
+      box-sizing: border-box;
     }
     button {
       margin-top: 15px;
@@ -56,6 +57,8 @@
     }
     canvas {
       margin-top: 30px;
+      max-width: 100%;
+      height: auto;
     }
     @media (max-width: 768px) {
       body {
@@ -70,10 +73,6 @@
       }
       table {
         font-size: 14px;
-      }
-      canvas {
-        width: 100% !important;
-        height: auto !important;
       }
     }
   </style>
@@ -149,9 +148,8 @@
 
     async function pobierzDane() {
       try {
-        const resp = await fetch(scriptURL + '?action=get');
+        const resp = await fetch(scriptURL + '?action=getData');
         const json = await resp.json();
-        // Pomijamy pierwszy wiersz (nagłówki)
         dane = json.slice(1).map(row => ({
           data: row[0],
           typ: row[1],
@@ -159,14 +157,14 @@
           model: row[3],
           pomieszczenie: row[4],
           kategoria: row[5],
-          kwota: parseFloat(row[6]) || 0,
+          kwota: parseFloat(row[6]),
           dokument: row[7],
           dodajacy: row[8],
           kto_placi: row[9]
         }));
         pokazTabele(dane);
-        pokazPodsumowanie(dane);
-        rysujWykres(dane);
+        aktualizujPodsumowanie(dane);
+        aktualizujWykres(dane);
       } catch (e) {
         alert("Błąd pobierania danych: " + e);
       }
@@ -175,16 +173,16 @@
     async function dodajWydatek() {
       const data = document.getElementById('data').value;
       const kwota = parseFloat(document.getElementById('kwota').value);
-      const nazwa = document.getElementById('nazwa').value.trim();
-      const typ = document.getElementById('typ').value.trim();
+      const nazwa = document.getElementById('nazwa').value;
+      const typ = document.getElementById('typ').value;
       const pomieszczenie = document.getElementById('pomieszczenie').value;
       const kategoria = document.getElementById('kategoria').value;
-      const dokument = document.getElementById('dokument').value.trim();
+      const dokument = document.getElementById('dokument').value;
       const dodajacy = document.getElementById('dodajacy').value;
       const ponoszacy = document.getElementById('ponoszacy').value;
 
       if (!data || isNaN(kwota) || !nazwa) {
-        alert("Uzupełnij wymagane dane: data, kwota, nazwa produktu.");
+        alert("Uzupełnij wymagane dane.");
         return;
       }
 
@@ -194,15 +192,13 @@
           body: JSON.stringify({
             data, typ, nazwa, model: typ, pomieszczenie, kategoria, kwota, dokument, dodajacy, kto_placi: ponoszacy
           }),
-          headers: {
-            'Content-Type': 'application/json'
-          }
+          headers: { 'Content-Type': 'application/json' }
         });
         const text = await resp.text();
         if (text === 'OK') {
           alert('Wydatek dodany pomyślnie');
-          document.getElementById('formularz').reset();
           await pobierzDane();
+          document.getElementById('formularz').reset();
         } else {
           alert('Błąd dodawania wydatku: ' + text);
         }
@@ -213,61 +209,88 @@
 
     function pokazTabele(lista) {
       const tabela = document.getElementById('tabela');
-      if (lista.length === 0) {
-        tabela.innerHTML = '<tr><td colspan="10" style="text-align:center;">Brak danych</td></tr>';
+      if (!lista.length) {
+        tabela.innerHTML = '<tr><td colspan="10">Brak danych do wyświetlenia</td></tr>';
         return;
       }
-
-      let html = '<tr>';
-      html += '<th>Data</th><th>Typ/model</th><th>Nazwa</th><th>Pomieszczenie</th><th>Kategoria</th><th>Kwota (zł)</th><th>Dokument</th><th>Kto dodał</th><th>Kto płaci</th>';
-      html += '</tr>';
-
-      lista.forEach(item => {
+      let html = '<thead><tr>' +
+        '<th>Data</th><th>Typ/model</th><th>Nazwa</th><th>Pomieszczenie</th><th>Kategoria</th><th>Kwota (zł)</th><th>Dokument</th><th>Kto dodał</th><th>Kto płacił</th>' +
+        '</tr></thead><tbody>';
+      lista.forEach(w => {
         html += `<tr>
-          <td>${item.data}</td>
-          <td>${item.typ}</td>
-          <td>${item.nazwa}</td>
-          <td>${item.pomieszczenie}</td>
-          <td>${item.kategoria}</td>
-          <td>${item.kwota.toFixed(2)}</td>
-          <td>${item.dokument}</td>
-          <td>${item.dodajacy}</td>
-          <td>${item.kto_placi}</td>
+          <td>${w.data}</td>
+          <td>${w.model || w.typ}</td>
+          <td>${w.nazwa}</td>
+          <td>${w.pomieszczenie}</td>
+          <td>${w.kategoria}</td>
+          <td>${w.kwota.toFixed(2)}</td>
+          <td>${w.dokument}</td>
+          <td>${w.dodajacy}</td>
+          <td>${w.kto_placi}</td>
         </tr>`;
       });
-
+      html += '</tbody>';
       tabela.innerHTML = html;
     }
 
-    function pokazPodsumowanie(lista) {
-      const suma = lista.reduce((acc, el) => acc + el.kwota, 0);
+    function aktualizujPodsumowanie(lista) {
       const podsumowanie = document.getElementById('podsumowanie');
-      podsumowanie.innerHTML = `<strong>Łączna kwota wydatków: </strong>${suma.toFixed(2)} zł`;
+      const suma = lista.reduce((a, b) => a + (b.kwota || 0), 0);
+
+      const osoby = {};
+      const pokoje = {};
+      const kategorie = {};
+
+      lista.forEach(w => {
+        osoby[w.kto_placi || w.ponoszacy] = (osoby[w.kto_placi || w.ponoszacy] || 0) + (w.kwota || 0);
+        pokoje[w.pomieszczenie] = (pokoje[w.pomieszczenie] || 0) + (w.kwota || 0);
+        kategorie[w.kategoria] = (kategorie[w.kategoria] || 0) + (w.kwota || 0);
+      });
+
+      let html = `<p><strong>Całkowite wydatki:</strong> ${suma.toFixed(2)} zł</p>`;
+
+      html += '<p><strong>Wydatki według osób:</strong><br>';
+      for (const osoba in osoby) {
+        html += `${osoba}: ${osoby[osoba].toFixed(2)} zł<br>`;
+      }
+      html += '</p>';
+
+      html += '<p><strong>Wydatki według pomieszczeń:</strong><br>';
+      for (const pokoj in pokoje) {
+        html += `${pokoj}: ${pokoje[pokoj].toFixed(2)} zł<br>`;
+      }
+      html += '</p>';
+
+      html += '<p><strong>Wydatki według kategorii:</strong><br>';
+      for (const kat in kategorie) {
+        html += `${kat}: ${kategorie[kat].toFixed(2)} zł<br>`;
+      }
+      html += '</p>';
+
+      podsumowanie.innerHTML = html;
     }
 
     function filtruj() {
-      const filtrData = document.getElementById('filtrData').value; // format yyyy-mm
-      const filtrPomieszczenie = document.getElementById('filtrPomieszczenie').value;
-      const filtrNazwa = document.getElementById('filtrNazwa').value.trim().toLowerCase();
+      const filtrData = document.getElementById('filtrData').value;
+      const filtrPomieszczenie = document.getElementById('filtrPomieszczenie').value.toLowerCase();
+      const filtrNazwa = document.getElementById('filtrNazwa').value.toLowerCase();
 
-      let filtrowane = dane.filter(item => {
-        let pass = true;
+      let listaFiltrowana = dane;
 
-        if (filtrData) {
-          pass = pass && item.data.startsWith(filtrData);
-        }
-        if (filtrPomieszczenie) {
-          pass = pass && (item.pomieszczenie === filtrPomieszczenie);
-        }
-        if (filtrNazwa) {
-          pass = pass && item.nazwa.toLowerCase().includes(filtrNazwa);
-        }
-        return pass;
-      });
+      if (filtrData) {
+        // filtrData to "YYYY-MM"
+        listaFiltrowana = listaFiltrowana.filter(w => w.data && w.data.startsWith(filtrData));
+      }
+      if (filtrPomieszczenie) {
+        listaFiltrowana = listaFiltrowana.filter(w => w.pomieszczenie.toLowerCase() === filtrPomieszczenie);
+      }
+      if (filtrNazwa) {
+        listaFiltrowana = listaFiltrowana.filter(w => w.nazwa.toLowerCase().includes(filtrNazwa));
+      }
 
-      pokazTabele(filtrowane);
-      pokazPodsumowanie(filtrowane);
-      rysujWykres(filtrowane);
+      pokazTabele(listaFiltrowana);
+      aktualizujPodsumowanie(listaFiltrowana);
+      aktualizujWykres(listaFiltrowana);
     }
 
     function wyczyscFiltry() {
@@ -275,51 +298,48 @@
       document.getElementById('filtrPomieszczenie').value = '';
       document.getElementById('filtrNazwa').value = '';
       pokazTabele(dane);
-      pokazPodsumowanie(dane);
-      rysujWykres(dane);
+      aktualizujPodsumowanie(dane);
+      aktualizujWykres(dane);
     }
 
-    function rysujWykres(lista) {
-      const ctx = document.getElementById('wykres').getContext('2d');
+    // Wykres - suma wydatków na kategorie
+    let wykres;
 
-      // Grupujemy kwoty wg pomieszczeń
-      const sumaPomieszczen = {};
-      lista.forEach(item => {
-        sumaPomieszczen[item.pomieszczenie] = (sumaPomieszczen[item.pomieszczenie] || 0) + item.kwota;
+    function aktualizujWykres(lista) {
+      const sumaKategorie = {};
+      lista.forEach(w => {
+        sumaKategorie[w.kategoria] = (sumaKategorie[w.kategoria] || 0) + (w.kwota || 0);
       });
 
-      const labels = Object.keys(sumaPomieszczen);
-      const dataKwoty = labels.map(l => sumaPomieszczen[l]);
+      const labels = Object.keys(sumaKategorie);
+      const values = labels.map(k => sumaKategorie[k]);
 
-      if (window.chartInstance) {
-        window.chartInstance.destroy();
-      }
+      const ctx = document.getElementById('wykres').getContext('2d');
 
-      window.chartInstance = new Chart(ctx, {
-        type: 'bar',
+      if (wykres) wykres.destroy();
+
+      wykres = new Chart(ctx, {
+        type: 'pie',
         data: {
           labels: labels,
           datasets: [{
-            label: 'Kwota wydatków (zł)',
-            data: dataKwoty,
-            backgroundColor: 'rgba(0,123,255,0.7)',
-            borderColor: 'rgba(0,123,255,1)',
-            borderWidth: 1
+            label: 'Wydatki wg kategorii',
+            data: values,
+            backgroundColor: ['#007BFF', '#28a745', '#ffc107', '#dc3545'],
           }]
         },
         options: {
           responsive: true,
-          scales: {
-            y: {
-              beginAtZero: true
-            }
+          plugins: {
+            legend: { position: 'bottom' },
+            title: { display: true, text: 'Wydatki według kategorii' }
           }
         }
       });
     }
 
     // Inicjalizacja
-    window.onload = pobierzDane;
+    pobierzDane();
   </script>
 </body>
 </html>
