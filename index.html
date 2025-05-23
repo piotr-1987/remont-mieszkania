@@ -56,11 +56,34 @@
     canvas {
       margin-top: 30px;
     }
+     @media (max-width: 768px) {
+  body {
+    margin: 10px;
+    font-size: 16px;
+  }
+  form, .summary, .filters {
+    padding: 15px;
+  }
+  input, select {
+    font-size: 16px;
+  }
+  table {
+    font-size: 14px;
+  }
+  canvas {
+    width: 100% !important;
+    height: auto !important;
+  }
+}
   </style>
+
 </head>
 <body>
+ <!-- Nagłówek z wizualizacją -->
+<div style="text-align: center; margin-bottom: 20px;">
+  <img src="https://jakon-inwest.pl/upload/pictures/budynekb.jpg" alt="Wizualizacja Sielskie Podolany" style="max-width: 100%; height: auto; border-radius: 8px;">
+</div>
   <h1>Wydatki – Mieszkanie 56, Sielskie Podolany</h1>
-
   <form id="formularz">
     <label>Data zakupu: <input type="date" id="data"></label>
     <label>Kwota (zł): <input type="number" id="kwota" step="0.01"></label>
