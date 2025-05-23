@@ -1,167 +1,174 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Remont Mieszkania 56 – Sielskie Podolany</title>
+  <meta charset="UTF-8">
+  <title>Wydatki - Mieszkanie 56</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 2rem; background: #f8f9fa; }
-    h1 { color: #333; }
-    table, th, td { border: 1px solid #ccc; border-collapse: collapse; padding: 0.5rem; }
-    table { width: 100%; margin-bottom: 1rem; background: #fff; }
-    th { background-color: #eee; }
-    input, select, button { margin: 0.25rem; padding: 0.5rem; }
-    .filter-group { margin-bottom: 1rem; }
+    body { font-family: Arial; padding: 20px; background: #f4f4f4; }
+    h1 { text-align: center; }
+    .form-section, .table-section, .chart-section, .export-section, .filter-section {
+      background: white; padding: 20px; margin: 20px auto; border-radius: 8px; max-width: 1200px;
+    }
+    input, select, button { margin: 5px; padding: 5px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    canvas { width: 100%; max-height: 400px; }
   </style>
 </head>
 <body>
-  <h1>Remont mieszkania 56 – Osiedle Sielskie Podolany</h1>
+  <h1>Wydatki remontowe – Mieszkanie 56, Sielskie Podolany</h1>
 
-  <div class="filter-group">
-    <label>Filtruj po dacie: <input type="date" id="filterDate" /></label>
-    <label>Po pomieszczeniu:
-      <select id="filterRoom">
-        <option value="">Wszystkie</option>
-        <option value="Aneks kuchenny">Aneks kuchenny</option>
-        <option value="Łazienka">Łazienka</option>
-        <option value="Sypialnia">Sypialnia</option>
-        <option value="Ogród">Ogród</option>
-      </select>
-    </label>
-    <label>Po nazwie produktu: <input type="text" id="filterProduct" /></label>
-    <button onclick="applyFilters()">Zastosuj filtry</button>
+  <div class="form-section">
+    <h2>Dodaj wydatek</h2>
+    <input type="date" id="data">
+    <input type="number" id="kwota" placeholder="Kwota (zł)">
+    <input type="text" id="typ" placeholder="Typ">
+    <input type="text" id="nazwa" placeholder="Nazwa produktu">
+    <input type="text" id="model" placeholder="Model">
+    <input type="text" id="dokument" placeholder="Nr dokumentu">
+    <select id="pomieszczenie">
+      <option value="">Pomieszczenie</option>
+      <option>Aneks kuchenny</option>
+      <option>Łazienka</option>
+      <option>Sypialnia</option>
+      <option>Ogród</option>
+    </select>
+    <select id="kategoria">
+      <option value="">Kategoria</option>
+      <option>Wyposażenie/Sprzęt</option>
+      <option>Materiał budowlany</option>
+      <option>Robocizna</option>
+    </select>
+    <button onclick="dodajWydatek()">Dodaj</button>
   </div>
 
-  <table id="expensesTable">
-    <thead>
-      <tr>
-        <th>Data</th>
-        <th>Kwota (zł)</th>
-        <th>Typ</th>
-        <th>Nazwa produktu</th>
-        <th>Model</th>
-        <th>Pomieszczenie</th>
-        <th>Kategoria</th>
-        <th>Nr dokumentu</th>
-        <th>Akcje</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <div class="filter-section">
+    <h2>Filtruj dane</h2>
+    <input type="month" id="filtrData">
+    <select id="filtrPomieszczenie"><option value="">Pomieszczenie</option><option>Aneks kuchenny</option><option>Łazienka</option><option>Sypialnia</option><option>Ogród</option></select>
+    <select id="filtrKategoria"><option value="">Kategoria</option><option>Wyposażenie/Sprzęt</option><option>Materiał budowlany</option><option>Robocizna</option></select>
+    <input type="text" id="filtrNazwa" placeholder="Nazwa produktu">
+    <button onclick="filtruj()">Zastosuj</button>
+  </div>
 
-  <form onsubmit="addExpense(event)">
-    <input type="date" id="date" required />
-    <input type="number" id="amount" placeholder="Kwota" required />
-    <input type="text" id="type" placeholder="Typ" required />
-    <input type="text" id="name" placeholder="Nazwa produktu" required />
-    <input type="text" id="model" placeholder="Model" required />
-    <select id="room" required>
-      <option value="">Pomieszczenie</option>
-      <option value="Aneks kuchenny">Aneks kuchenny</option>
-      <option value="Łazienka">Łazienka</option>
-      <option value="Sypialnia">Sypialnia</option>
-      <option value="Ogród">Ogród</option>
-    </select>
-    <select id="category" required>
-      <option value="">Kategoria</option>
-      <option value="Wyposażenie/Sprzęt">Wyposażenie/Sprzęt</option>
-      <option value="Materiał budowlany/Robocizna">Materiał budowlany/Robocizna</option>
-    </select>
-    <input type="text" id="docNumber" placeholder="Nr dokumentu/paragonu" required />
-    <button type="submit">Dodaj wydatek</button>
-  </form>
+  <div class="table-section">
+    <h2>Lista wydatków</h2>
+    <table id="tabela">
+      <thead><tr><th>Data</th><th>Kwota</th><th>Typ</th><th>Nazwa</th><th>Model</th><th>Nr dokumentu</th><th>Pomieszczenie</th><th>Kategoria</th><th>Akcje</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
 
-  <canvas id="chart" height="100"></canvas>
-  <div>
-    <button onclick="exportToExcel()">Eksport do Excel</button>
-    <button onclick="exportToPDF()">Eksport do PDF</button>
+  <div class="chart-section">
+    <h2>Wykres wydatków w czasie</h2>
+    <canvas id="chart"></canvas>
+  </div>
+
+  <div class="export-section">
+    <h2>Eksportuj dane</h2>
+    <button onclick="eksportExcel()">Eksport Excel</button>
+    <button onclick="window.print()">Eksport PDF</button>
   </div>
 
   <script>
-    const expenses = [];
+    let dane = [];
+    let edytowanyIndex = -1;
 
-    function addExpense(event) {
-      event.preventDefault();
-      const expense = {
-        date: date.value,
-        amount: parseFloat(amount.value),
-        type: type.value,
-        name: name.value,
-        model: model.value,
-        room: room.value,
-        category: category.value,
-        docNumber: docNumber.value
+    function dodajWydatek() {
+      const w = {
+        data: document.getElementById('data').value,
+        kwota: parseFloat(document.getElementById('kwota').value || 0),
+        typ: document.getElementById('typ').value,
+        nazwa: document.getElementById('nazwa').value,
+        model: document.getElementById('model').value,
+        dokument: document.getElementById('dokument').value,
+        pomieszczenie: document.getElementById('pomieszczenie').value,
+        kategoria: document.getElementById('kategoria').value
       };
-      expenses.push(expense);
-      renderTable();
+      if (edytowanyIndex > -1) {
+        dane[edytowanyIndex] = w;
+        edytowanyIndex = -1;
+      } else {
+        dane.push(w);
+      }
+      rysujTabele();
+      rysujWykres();
     }
 
-    function renderTable(filtered = expenses) {
-      const tbody = document.querySelector("#expensesTable tbody");
-      tbody.innerHTML = "";
-      filtered.forEach((e, index) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${e.date}</td>
-          <td>${e.amount.toFixed(2)}</td>
-          <td>${e.type}</td>
-          <td>${e.name}</td>
-          <td>${e.model}</td>
-          <td>${e.room}</td>
-          <td>${e.category}</td>
-          <td>${e.docNumber}</td>
-          <td>
-            <button onclick="editExpense(${index})">Edytuj</button>
-            <button onclick="deleteExpense(${index})">Usuń</button>
-          </td>`;
+    function rysujTabele() {
+      const tbody = document.querySelector('#tabela tbody');
+      tbody.innerHTML = '';
+      dane.forEach((w, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${w.data}</td><td>${w.kwota.toFixed(2)}</td><td>${w.typ}</td><td>${w.nazwa}</td><td>${w.model}</td><td>${w.dokument}</td><td>${w.pomieszczenie}</td><td>${w.kategoria}</td><td><button onclick="edytuj(${i})">Edytuj</button><button onclick="usun(${i})">Usuń</button></td>`;
         tbody.appendChild(tr);
       });
     }
 
-    function deleteExpense(index) {
-      if (confirm("Czy na pewno usunąć ten wpis?")) {
-        expenses.splice(index, 1);
-        renderTable();
-      }
+    function edytuj(i) {
+      const w = dane[i];
+      document.getElementById('data').value = w.data;
+      document.getElementById('kwota').value = w.kwota;
+      document.getElementById('typ').value = w.typ;
+      document.getElementById('nazwa').value = w.nazwa;
+      document.getElementById('model').value = w.model;
+      document.getElementById('dokument').value = w.dokument;
+      document.getElementById('pomieszczenie').value = w.pomieszczenie;
+      document.getElementById('kategoria').value = w.kategoria;
+      edytowanyIndex = i;
     }
 
-    function editExpense(index) {
-      const e = expenses[index];
-      date.value = e.date;
-      amount.value = e.amount;
-      type.value = e.type;
-      name.value = e.name;
-      model.value = e.model;
-      room.value = e.room;
-      category.value = e.category;
-      docNumber.value = e.docNumber;
-      expenses.splice(index, 1);
-      renderTable();
+    function usun(i) {
+      dane.splice(i, 1);
+      rysujTabele();
+      rysujWykres();
     }
 
-    function applyFilters() {
-      const dateF = document.getElementById("filterDate").value;
-      const roomF = document.getElementById("filterRoom").value;
-      const productF = document.getElementById("filterProduct").value.toLowerCase();
-      const filtered = expenses.filter(e => {
-        return (!dateF || e.date === dateF)
-          && (!roomF || e.room === roomF)
-          && (!productF || e.name.toLowerCase().includes(productF));
-      });
-      renderTable(filtered);
-    }
-
-    function exportToExcel() {
-      const ws = XLSX.utils.json_to_sheet(expenses);
+    function eksportExcel() {
+      const ws = XLSX.utils.json_to_sheet(dane);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Wydatki");
-      XLSX.writeFile(wb, "wydatki_mieszkanie56.xlsx");
+      XLSX.utils.book_append_sheet(wb, ws, 'Wydatki');
+      XLSX.writeFile(wb, 'wydatki_mieszkanie_56.xlsx');
     }
 
-    function exportToPDF() {
-      window.print(); // Możesz podmienić na html2pdf.js dla zaawansowanej wersji
+    function rysujWykres() {
+      const ctx = document.getElementById('chart').getContext('2d');
+      const dzienniki = {};
+      dane.forEach(w => {
+        if (!dzienniki[w.data]) dzienniki[w.data] = 0;
+        dzienniki[w.data] += w.kwota;
+      });
+      const labels = Object.keys(dzienniki).sort();
+      const values = labels.map(d => dzienniki[d]);
+      if (window.chartInstance) window.chartInstance.destroy();
+      window.chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{ label: 'Wydatki (zł)', data: values, fill: false, borderColor: 'blue' }]
+        },
+        options: {
+          scales: { x: { title: { display: true, text: 'Data' } }, y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    function filtruj() {
+      const data = document.getElementById('filtrData').value;
+      const pom = document.getElementById('filtrPomieszczenie').value;
+      const kat = document.getElementById('filtrKategoria').value;
+      const naz = document.getElementById('filtrNazwa').value.toLowerCase();
+
+      const tbody = document.querySelector('#tabela tbody');
+      tbody.innerHTML = '';
+      dane.forEach((w, i) => {
+        if ((data && !w.data.startsWith(data)) || (pom && w.pomieszczenie !== pom) || (kat && w.kategoria !== kat) || (naz && !w.nazwa.toLowerCase().includes(naz))) return;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${w.data}</td><td>${w.kwota.toFixed(2)}</td><td>${w.typ}</td><td>${w.nazwa}</td><td>${w.model}</td><td>${w.dokument}</td><td>${w.pomieszczenie}</td><td>${w.kategoria}</td><td><button onclick="edytuj(${i})">Edytuj</button><button onclick="usun(${i})">Usuń</button></td>`;
+        tbody.appendChild(tr);
+      });
     }
   </script>
 </body>
