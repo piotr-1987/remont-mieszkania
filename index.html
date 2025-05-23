@@ -3,191 +3,224 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Remont mieszkania nr 56 - Sielskie Podolany</title>
+  <title>Wydatki - Mieszkanie 56</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
-    input, select, button { margin: 5px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    th { background: #eee; }
-    .filters, .summary, .chart-container { margin-top: 20px; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f5f5f5;
+    }
+    h1 {
+      text-align: center;
+    }
+    form, .summary, .filters {
+      background-color: #fff;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+    }
+    input, select {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+    }
+    button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ccc;
+    }
+    th {
+      background-color: #eee;
+    }
+    canvas {
+      margin-top: 30px;
+    }
   </style>
 </head>
 <body>
-  <h1>Remont mieszkania nr 56 - Sielskie Podolany</h1>
+  <h1>Wydatki – Mieszkanie 56, Sielskie Podolany</h1>
 
-  <div>
-    <input type="date" id="data">
-    <input type="text" id="produkt" placeholder="Nazwa produktu">
-    <input type="text" id="model" placeholder="Model">
-    <input type="number" id="kwota" placeholder="Kwota">
-    <input type="text" id="dokument" placeholder="Nr dokumentu">
-    <select id="pomieszczenie">
-      <option value="Łazienka">Łazienka</option>
-      <option value="Aneks kuchenny">Aneks kuchenny</option>
-      <option value="Sypialnia">Sypialnia</option>
-      <option value="Ogród">Ogród</option>
-    </select>
-    <select id="kategoria">
-      <option value="Wyposażenie">Wyposażenie</option>
-      <option value="Sprzęt">Sprzęt</option>
-      <option value="Materiał budowlany">Materiał budowlany</option>
-      <option value="Robocizna">Robocizna</option>
-    </select>
-    <select id="ktoDodal">
-      <option value="Marta">Marta</option>
-      <option value="Piotr">Piotr</option>
-    </select>
-    <select id="ktoPoniosl">
-      <option value="Marta">Marta</option>
-      <option value="Piotr">Piotr</option>
-    </select>
-    <button onclick="dodajWydatek()">Dodaj wydatek</button>
-  </div>
+  <form id="formularz">
+    <label>Data zakupu: <input type="date" id="data"></label>
+    <label>Kwota (zł): <input type="number" id="kwota" step="0.01"></label>
+    <label>Nazwa produktu: <input type="text" id="nazwa"></label>
+    <label>Typ/model: <input type="text" id="typ"></label>
+    <label>Pomieszczenie:
+      <select id="pomieszczenie">
+        <option>Aneks kuchenny</option>
+        <option>Łazienka</option>
+        <option>Sypialnia</option>
+        <option>Ogród</option>
+      </select>
+    </label>
+    <label>Kategoria:
+      <select id="kategoria">
+        <option>Wyposażenie/sprzęt</option>
+        <option>Materiał budowlany/robocizna</option>
+      </select>
+    </label>
+    <label>Numer dokumentu/Paragonu: <input type="text" id="dokument"></label>
+    <label>Kto dodał: 
+      <select id="dodajacy">
+        <option>Marta</option>
+        <option>Piotr</option>
+      </select>
+    </label>
+    <label>Kto poniósł koszt: 
+      <select id="ponoszacy">
+        <option>Marta</option>
+        <option>Piotr</option>
+      </select>
+    </label>
+    <button type="button" onclick="dodajWydatek()">Dodaj wydatek</button>
+  </form>
 
   <div class="filters">
-    <input type="text" id="filtrProdukt" placeholder="Filtr: Produkt">
-    <select id="filtrPomieszczenie">
-      <option value="">Wszystkie pomieszczenia</option>
-      <option value="Łazienka">Łazienka</option>
-      <option value="Aneks kuchenny">Aneks kuchenny</option>
-      <option value="Sypialnia">Sypialnia</option>
-      <option value="Ogród">Ogród</option>
-    </select>
-    <input type="month" id="filtrData">
-    <button onclick="filtrujWydatki()">Filtruj</button>
+    <label>Filtruj po dacie: <input type="month" id="filtrData"></label>
+    <label>Filtruj po pomieszczeniu:
+      <select id="filtrPomieszczenie">
+        <option value="">Wszystkie</option>
+        <option>Aneks kuchenny</option>
+        <option>Łazienka</option>
+        <option>Sypialnia</option>
+        <option>Ogród</option>
+      </select>
+    </label>
+    <label>Filtruj po nazwie produktu: <input type="text" id="filtrNazwa"></label>
+    <button onclick="filtruj()">Zastosuj filtr</button>
+    <button onclick="wyczyscFiltry()">Wyczyść filtry</button>
   </div>
 
   <div class="summary" id="podsumowanie"></div>
-  <div class="chart-container">
-    <canvas id="wykres" width="800" height="400"></canvas>
-  </div>
 
   <table id="tabela"></table>
 
+  <canvas id="wykres" width="400" height="200"></canvas>
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    let wydatki = JSON.parse(localStorage.getItem('wydatki')) || [];
+    let dane = JSON.parse(localStorage.getItem('wydatki') || '[]');
+
+    function zapiszDane() {
+      localStorage.setItem('wydatki', JSON.stringify(dane));
+    }
 
     function dodajWydatek() {
       const data = document.getElementById('data').value;
-      const produkt = document.getElementById('produkt').value;
-      const model = document.getElementById('model').value;
       const kwota = parseFloat(document.getElementById('kwota').value);
-      const dokument = document.getElementById('dokument').value;
+      const nazwa = document.getElementById('nazwa').value;
+      const typ = document.getElementById('typ').value;
       const pomieszczenie = document.getElementById('pomieszczenie').value;
       const kategoria = document.getElementById('kategoria').value;
-      const ktoDodal = document.getElementById('ktoDodal').value;
-      const ktoPoniosl = document.getElementById('ktoPoniosl').value;
+      const dokument = document.getElementById('dokument').value;
+      const dodajacy = document.getElementById('dodajacy').value;
+      const ponoszacy = document.getElementById('ponoszacy').value;
 
-      if (!data || !produkt || isNaN(kwota)) return alert('Uzupełnij wymagane pola.');
+      if (!data || isNaN(kwota) || !nazwa) return alert("Uzupełnij wymagane dane.");
 
-      wydatki.push({ data, produkt, model, kwota, dokument, pomieszczenie, kategoria, ktoDodal, ktoPoniosl });
-      localStorage.setItem('wydatki', JSON.stringify(wydatki));
-
+      dane.push({ data, kwota, nazwa, typ, pomieszczenie, kategoria, dokument, dodajacy, ponoszacy });
+      zapiszDane();
       pokazTabele();
-      pokazPodsumowanie();
-      rysujWykres();
     }
 
-    function filtrujDane() {
-      const filtrProdukt = document.getElementById('filtrProdukt').value.toLowerCase();
-      const filtrPom = document.getElementById('filtrPomieszczenie').value;
-      const filtrData = document.getElementById('filtrData').value;
-
-      return wydatki.filter(w =>
-        (!filtrProdukt || w.produkt.toLowerCase().includes(filtrProdukt)) &&
-        (!filtrPom || w.pomieszczenie === filtrPom) &&
-        (!filtrData || w.data.startsWith(filtrData))
-      );
-    }
-
-    function filtrujWydatki() {
-      pokazTabele();
-      pokazPodsumowanie();
-      rysujWykres();
-    }
-
-    function pokazTabele() {
+    function pokazTabele(filtrowane = dane) {
       const tabela = document.getElementById('tabela');
-      const dane = filtrujDane();
-      tabela.innerHTML = `
-        <tr><th>Data</th><th>Produkt</th><th>Model</th><th>Kwota</th><th>Dokument</th><th>Pomieszczenie</th><th>Kategoria</th><th>Kto dodał</th><th>Kto poniósł</th><th>Usuń</th></tr>
-        ${dane.map((w, i) => `<tr>
-          <td>${w.data}</td><td>${w.produkt}</td><td>${w.model}</td><td>${w.kwota.toFixed(2)}</td>
-          <td>${w.dokument}</td><td>${w.pomieszczenie}</td><td>${w.kategoria}</td><td>${w.ktoDodal}</td><td>${w.ktoPoniosl}</td>
-          <td><button onclick="usunWydatek(${i})">Usuń</button></td>
-        </tr>`).join('')}
-      `;
+      tabela.innerHTML = '<tr><th>Data</th><th>Kwota</th><th>Nazwa</th><th>Typ</th><th>Pomieszczenie</th><th>Kategoria</th><th>Dokument</th><th>Dodał</th><th>Poniósł koszt</th><th>Usuń</th></tr>';
+      filtrowane.forEach((w, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${w.data}</td><td>${w.kwota.toFixed(2)}</td><td>${w.nazwa}</td><td>${w.typ}</td><td>${w.pomieszczenie}</td><td>${w.kategoria}</td><td>${w.dokument}</td><td>${w.dodajacy}</td><td>${w.ponoszacy}</td><td><button onclick="usun(${i})">🗑️</button></td>`;
+        tabela.appendChild(tr);
+      });
+      rysujWykres(filtrowane);
+      aktualizujPodsumowanie(filtrowane);
     }
 
-    function usunWydatek(index) {
-      const filtrowane = filtrujDane();
-      const oryginalnyIndex = wydatki.findIndex(w => w.data === filtrowane[index].data && w.produkt === filtrowane[index].produkt);
-      if (oryginalnyIndex !== -1) wydatki.splice(oryginalnyIndex, 1);
-      localStorage.setItem('wydatki', JSON.stringify(wydatki));
+    function usun(i) {
+      dane.splice(i, 1);
+      zapiszDane();
       pokazTabele();
-      pokazPodsumowanie();
-      rysujWykres();
     }
 
-    function pokazPodsumowanie() {
-      const filtrowane = filtrujDane();
-      let sumaMarta = 0;
-      let sumaPiotr = 0;
-      const sumaPomieszczenia = {};
-      const sumaKategorii = {};
+    function filtruj() {
+      const filtrData = document.getElementById('filtrData').value;
+      const filtrPom = document.getElementById('filtrPomieszczenie').value;
+      const filtrNazwa = document.getElementById('filtrNazwa').value.toLowerCase();
 
-      filtrowane.forEach(w => {
-        if (w.ktoPoniosl === 'Marta') sumaMarta += w.kwota;
-        else if (w.ktoPoniosl === 'Piotr') sumaPiotr += w.kwota;
-
-        if (!sumaPomieszczenia[w.pomieszczenie]) sumaPomieszczenia[w.pomieszczenie] = 0;
-        sumaPomieszczenia[w.pomieszczenie] += w.kwota;
-
-        if (!sumaKategorii[w.kategoria]) sumaKategorii[w.kategoria] = 0;
-        sumaKategorii[w.kategoria] += w.kwota;
-      });
-
-      document.getElementById('podsumowanie').innerHTML = `
-        <h3>Podsumowanie kosztów wg osoby ponoszącej wydatek:</h3>
-        <p><strong>Marta:</strong> ${sumaMarta.toFixed(2)} zł</p>
-        <p><strong>Piotr:</strong> ${sumaPiotr.toFixed(2)} zł</p>
-        <p><strong>Razem:</strong> ${(sumaMarta + sumaPiotr).toFixed(2)} zł</p>
-        <h3>Podsumowanie kosztów wg pomieszczeń:</h3>
-        <ul>${Object.entries(sumaPomieszczenia).map(([k,v]) => `<li><strong>${k}:</strong> ${v.toFixed(2)} zł</li>`).join('')}</ul>
-        <h3>Podsumowanie kosztów wg kategorii:</h3>
-        <ul>${Object.entries(sumaKategorii).map(([k,v]) => `<li><strong>${k}:</strong> ${v.toFixed(2)} zł</li>`).join('')}</ul>
-      `;
+      const wynik = dane.filter(w =>
+        (!filtrData || w.data.startsWith(filtrData)) &&
+        (!filtrPom || w.pomieszczenie === filtrPom) &&
+        (!filtrNazwa || w.nazwa.toLowerCase().includes(filtrNazwa))
+      );
+      pokazTabele(wynik);
     }
 
-    function rysujWykres() {
-      const dane = filtrujDane();
-      const miesiace = {};
-      dane.forEach(w => {
-        const miesiac = w.data.slice(0, 7);
-        if (!miesiace[miesiac]) miesiace[miesiac] = 0;
-        miesiace[miesiac] += w.kwota;
-      });
+    function wyczyscFiltry() {
+      document.getElementById('filtrData').value = '';
+      document.getElementById('filtrPomieszczenie').value = '';
+      document.getElementById('filtrNazwa').value = '';
+      pokazTabele();
+    }
 
+    function aktualizujPodsumowanie(lista) {
+      const podsumowanie = document.getElementById('podsumowanie');
+      const suma = lista.reduce((a,b) => a + b.kwota, 0);
+      const osoby = {};
+      const pokoje = {};
+      const kategorie = {};
+      lista.forEach(w => {
+        osoby[w.ponoszacy] = (osoby[w.ponoszacy] || 0) + w.kwota;
+        pokoje[w.pomieszczenie] = (pokoje[w.pomieszczenie] || 0) + w.kwota;
+        kategorie[w.kategoria] = (kategorie[w.kategoria] || 0) + w.kwota;
+      });
+      podsumowanie.innerHTML = `<p><strong>Całkowite wydatki:</strong> ${suma.toFixed(2)} zł</p>` +
+        `<p><strong>Koszty wg osoby ponoszącej wydatek:</strong><br>${Object.entries(osoby).map(([k,v]) => `${k}: ${v.toFixed(2)} zł`).join('<br>')}</p>` +
+        `<p><strong>Koszty wg pomieszczeń:</strong><br>${Object.entries(pokoje).map(([k,v]) => `${k}: ${v.toFixed(2)} zł`).join('<br>')}</p>` +
+        `<p><strong>Koszty wg kategorii:</strong><br>${Object.entries(kategorie).map(([k,v]) => `${k}: ${v.toFixed(2)} zł`).join('<br>')}</p>`;
+    }
+
+    function rysujWykres(lista) {
       const ctx = document.getElementById('wykres').getContext('2d');
-      if (window.wykres) window.wykres.destroy();
-      window.wykres = new Chart(ctx, {
+      const wgDaty = {};
+      lista.forEach(w => {
+        const miesiac = w.data.substring(0,7);
+        wgDaty[miesiac] = (wgDaty[miesiac] || 0) + w.kwota;
+      });
+      if (window.wykresInstance) window.wykresInstance.destroy();
+      window.wykresInstance = new Chart(ctx, {
         type: 'bar',
         data: {
-          labels: Object.keys(miesiace),
+          labels: Object.keys(wgDaty),
           datasets: [{
-            label: 'Wydatki w czasie',
-            data: Object.values(miesiace),
-            backgroundColor: 'rgba(75, 192, 192, 0.6)'
+            label: 'Wydatki miesięczne',
+            data: Object.values(wgDaty),
+            backgroundColor: 'rgba(54, 162, 235, 0.6)'
           }]
         }
       });
     }
 
     pokazTabele();
-    pokazPodsumowanie();
-    rysujWykres();
   </script>
 </body>
 </html>
