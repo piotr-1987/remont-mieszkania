@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wydatki Remontowe - Mieszkanie 56</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    h1 { color: #333; }
+    form, table, canvas { margin-top: 20px; width: 100%; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; }
+    select, input[type="text"], input[type="number"], input[type="date"] { width: 100%; padding: 6px; }
+    canvas { max-height: 300px; }
+    .export-buttons, .filters { margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Remont mieszkania nr 56 - Osiedle Sielskie Podolany</h1>
+  <form id="expense-form">
+    <label>Kwota: <input type="number" step="0.01" id="amount" required></label><br>
+    <label>Typ produktu: <input type="text" id="type" required></label><br>
+    <label>Nazwa produktu: <input type="text" id="name" required></label><br>
+    <label>Model: <input type="text" id="model"></label><br>
+    <label>Pomieszczenie:
+      <select id="room">
+        <option value="Aneks kuchenny">Aneks kuchenny</option>
+        <option value="Łazienka">Łazienka</option>
+        <option value="Sypialnia">Sypialnia</option>
+        <option value="Ogród">Ogród</option>
+      </select>
+    </label><br>
+    <label>Kategoria:
+      <select id="category">
+        <option value="Wyposażenie/Sprzęt">Wyposażenie/Sprzęt</option>
+        <option value="Materiał budowlany/Robocizna">Materiał budowlany/Robocizna</option>
+      </select>
+    </label><br>
+    <label>Data zakupu: <input type="date" id="date" required></label><br>
+    <button type="submit">Dodaj wydatek</button>
+  </form>
+
+  <div class="filters">
+    <h2>Filtruj dane</h2>
+    <label>Data od: <input type="date" id="filter-date-from"></label>
+    <label>Data do: <input type="date" id="filter-date-to"></label>
+    <label>Pomieszczenie:
+      <select id="filter-room">
+        <option value="">(Wszystkie)</option>
+        <option value="Aneks kuchenny">Aneks kuchenny</option>
+        <option value="Łazienka">Łazienka</option>
+        <option value="Sypialnia">Sypialnia</option>
+        <option value="Ogród">Ogród</option>
+      </select>
+    </label>
+    <label>Nazwa produktu: <input type="text" id="filter-name"></label>
+    <button onclick="applyFilters()">Zastosuj filtry</button>
+    <button onclick="clearFilters()">Wyczyść filtry</button>
+  </div>
+
+  <div class="export-buttons">
+    <label>Co eksportować?
+      <select id="export-scope">
+        <option value="all">Całość (lista + podsumowanie)</option>
+        <option value="summary">Tylko podsumowanie</option>
+      </select>
+    </label>
+    <button onclick="exportToExcel()">Eksportuj do Excel</button>
+    <button onclick="exportToPDF()">Eksportuj do PDF</button>
+  </div>
+
+  <h2>Lista wydatków</h2>
+  <table id="expenses-table">
+    <thead>
+      <tr>
+        <th>Kwota</th>
+        <th>Typ</th>
+        <th>Nazwa</th>
+        <th>Model</th>
+        <th>Pomieszczenie</th>
+        <th>Kategoria</th>
+        <th>Data</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h2>Podsumowanie</h2>
+  <div id="summary"></div>
+
+  <h2>Wykres wydatków w czasie</h2>
+  <canvas id="chart"></canvas>
+
+  <script>
+    const form = document.getElementById('expense-form');
+    const tableBody = document.querySelector('#expenses-table tbody');
+    const summary = document.getElementById('summary');
+    const chartCanvas = document.getElementById('chart');
+    let expenses = [];
+    let filteredExpenses = [];
+
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const expense = {
+        amount: parseFloat(document.getElementById('amount').value),
+        type: document.getElementById('type').value,
+        name: document.getElementById('name').value,
+        model: document.getElementById('model').value,
+        room: document.getElementById('room').value,
+        category: document.getElementById('category').value,
+        date: document.getElementById('date').value
+      };
+      expenses.push(expense);
+      applyFilters();
+      form.reset();
+    });
+
+    function applyFilters() {
+      const dateFrom = document.getElementById('filter-date-from').value;
+      const dateTo = document.getElementById('filter-date-to').value;
+      const room = document.getElementById('filter-room').value;
+      const name = document.getElementById('filter-name').value.toLowerCase();
+
+      filteredExpenses = expenses.filter(e => {
+        return (!dateFrom || e.date >= dateFrom)
+          && (!dateTo || e.date <= dateTo)
+          && (!room || e.room === room)
+          && (!name || e.name.toLowerCase().includes(name));
+      });
+      renderTable();
+      renderSummary();
+      renderChart();
+    }
+
+    function clearFilters() {
+      document.getElementById('filter-date-from').value = '';
+      document.getElementById('filter-date-to').value = '';
+      document.getElementById('filter-room').value = '';
+      document.getElementById('filter-name').value = '';
+      filteredExpenses = expenses;
+      renderTable();
+      renderSummary();
+      renderChart();
+    }
+
+    function renderTable() {
+      tableBody.innerHTML = '';
+      filteredExpenses.forEach(exp => {
+        const row = `<tr>
+          <td>${exp.amount.toFixed(2)} zł</td>
+          <td>${exp.type}</td>
+          <td>${exp.name}</td>
+          <td>${exp.model}</td>
+          <td>${exp.room}</td>
+          <td>${exp.category}</td>
+          <td>${exp.date}</td>
+        </tr>`;
+        tableBody.innerHTML += row;
+      });
+    }
+
+    function renderSummary() {
+      const total = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+      const byCategory = {};
+      filteredExpenses.forEach(e => {
+        byCategory[e.category] = (byCategory[e.category] || 0) + e.amount;
+      });
+      let summaryText = `Suma wydatków: ${total.toFixed(2)} zł<br>`;
+      for (const [cat, val] of Object.entries(byCategory)) {
+        summaryText += `${cat}: ${val.toFixed(2)} zł<br>`;
+      }
+      summary.innerHTML = summaryText;
+    }
+
+    function renderChart() {
+      const dataByDate = {};
+      filteredExpenses.forEach(e => {
+        dataByDate[e.date] = (dataByDate[e.date] || 0) + e.amount;
+      });
+      const labels = Object.keys(dataByDate).sort();
+      const data = labels.map(date => dataByDate[date]);
+
+      if (window.expenseChart) window.expenseChart.destroy();
+      window.expenseChart = new Chart(chartCanvas, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Wydatki (zł)',
+            data,
+            borderColor: 'blue',
+            fill: false
+          }]
+        }
+      });
+    }
+
+    function exportToExcel() {
+      const scope = document.getElementById('export-scope').value;
+      let csv = '';
+      if (scope === 'all') {
+        csv += 'Kwota,Typ,Nazwa,Model,Pomieszczenie,Kategoria,Data\n';
+        filteredExpenses.forEach(e => {
+          csv += `${e.amount},${e.type},${e.name},${e.model},${e.room},${e.category},${e.date}\n`;
+        });
+      } else {
+        const total = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+        csv += 'Podsumowanie:\n';
+        csv += `Suma wydatków:,${total}\n`;
+        const byCategory = {};
+        filteredExpenses.forEach(e => {
+          byCategory[e.category] = (byCategory[e.category] || 0) + e.amount;
+        });
+        for (const [cat, val] of Object.entries(byCategory)) {
+          csv += `${cat},${val}\n`;
+        }
+      }
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'wydatki.csv';
+      a.click();
+    }
+
+    function exportToPDF() {
+      const scope = document.getElementById('export-scope').value;
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      let y = 10;
+      if (scope === 'all') {
+        doc.text('Lista wydatków:', 10, y);
+        y += 10;
+        filteredExpenses.forEach(e => {
+          doc.text(`Kwota: ${e.amount} zł, Typ: ${e.type}, Nazwa: ${e.name}, Model: ${e.model}, Pomieszczenie: ${e.room}, Kategoria: ${e.category}, Data: ${e.date}`, 10, y);
+          y += 10;
+          if (y > 270) { doc.addPage(); y = 10; }
+        });
+      }
+      const total = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+      y += 10;
+      doc.text('Podsumowanie:', 10, y);
+      y += 10;
+      doc.text(`Suma wydatków: ${total.toFixed(2)} zł`, 10, y);
+      y += 10;
+      const byCategory = {};
+      filteredExpenses.forEach(e => {
+        byCategory[e.category] = (byCategory[e.category] || 0) + e.amount;
+      });
+      for (const [cat, val] of Object.entries(byCategory)) {
+        doc.text(`${cat}: ${val.toFixed(2)} zł`, 10, y);
+        y += 10;
+      }
+      doc.save('wydatki.pdf');
+    }
+  </script>
+</body>
+</html>
