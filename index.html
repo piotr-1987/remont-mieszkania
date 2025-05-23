@@ -74,6 +74,7 @@
   </form>
 
   <canvas id="chart" height="100"></canvas>
+
   <div>
     <button onclick="exportToExcel()">Eksport do Excel</button>
     <button onclick="exportToPDF()">Eksport do PDF</button>
@@ -161,7 +162,7 @@
     }
 
     function exportToPDF() {
-      window.print(); // Możesz podmienić na html2pdf.js dla zaawansowanej wersji
+      window.print(); // Prosty eksport – możesz podmienić na html2pdf.js
     }
   </script>
 </body>
