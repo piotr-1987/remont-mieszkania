@@ -30,29 +30,17 @@
 
   <h1>Zarządzanie Wydatkami Mieszkanie 56</h1>
 
-<!-- Filtry -->
+  <!-- Filtry -->
   <div class="filter-section">
-    <label for="filterDodajacy">Dodający:</label>
+    <label for="filterDodajacy">Filtr: Dodający</label>
     <input type="text" id="filterDodajacy" placeholder="Wpisz nazwę..." />
-    <label for="filterKtoPlaci" style="margin-left: 20px;">Kto płaci:</label>
+    <label for="filterKtoPlaci" style="margin-left: 20px;">Filtr: Kto płaci</label>
     <input type="text" id="filterKtoPlaci" placeholder="Wpisz nazwę..." />
+    <button id="clearFilters">Wyczyść filtry</button>
   </div>
-  <div class="filter-section">
-    <label for="filterPomieszczenie">Pomieszczenie:</label>
-    <input type="text" id="filterPomieszczenie" placeholder="Wpisz pomieszczenie..." />
-    <label for="filterKategoria" style="margin-left: 20px;">Kategoria:</label>
-    <input type="text" id="filterKategoria" placeholder="Wpisz kategorię..." />
-  </div>
-  <div class="filter-section">
-    <label for="filterNazwa">Nazwa:</label>
-    <input type="text" id="filterNazwa" placeholder="Wpisz nazwę..." />
-    <label for="filterModel" style="margin-left: 20px;">Model:</label>
-    <input type="text" id="filterModel" placeholder="Wpisz model..." />
-  </div>
-  <button id="clearFilters">Wyczyść filtry</button>
 
   <!-- Tabela danych -->
-  <table id="expensesTable">
+  <table id="expensesTable" aria-label="Tabela wydatków">
     <thead>
       <tr>
         <th>Data</th>
@@ -61,7 +49,7 @@
         <th>Model</th>
         <th>Pomieszczenie</th>
         <th>Kategoria</th>
-        <th>Kwota (zł)</th>
+        <th>Kwota</th>
         <th>Dokument</th>
         <th>Dodający</th>
         <th>Kto płaci</th>
@@ -70,8 +58,6 @@
     </thead>
     <tbody></tbody>
   </table>
-
-  <div id="summary">Do tej pory wydano: 0.00 zł</div>
 
   <!-- Formularz dodawania/edycji -->
   <h2 id="formTitle">Dodaj nowy wydatek</h2>
@@ -124,346 +110,248 @@
     <button type="button" id="cancelEdit" style="display:none;">Anuluj</button>
   </form>
 
-  <!-- Kontener wykresu -->
+  <!-- Wykres podsumowania -->
   <div id="chartContainer">
-    <canvas id="expensesChart" width="900" height="350"></canvas>
-    <div id="chartLegend"></div>
+    <canvas id="categoryChart" aria-label="Wykres wydatków wg kategorii" role="img"></canvas>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script>
-    // Podmień na swój URL Google Apps Script WebApp
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzjP7UdZdqoIEGK98tGH6RAK9U39cVmMMBlZe2h7DcAPLG9VyNq_30qCJvwz-IrXfn-EA/exec";
+  <!-- Przyciski eksportu -->
+  <div style="margin-top: 20px;">
+    <button id="exportPdfBtn">Eksportuj do PDF</button>
+  </div>
 
-    let expensesData = [];
+<script>
+  // === KONFIGURACJA ===
+  // Podmień na swój URL Google Apps Script WebApp jeśli masz
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzjP7UdZdqoIEGK98tGH6RAK9U39cVmMMBlZe2h7DcAPLG9VyNq_30qCJvwz-IrXfn-EA/exec";
 
-    // Pobierz dane z serwera (GET)
-    async function fetchData() {
-      try {
-        const url = new URL(SCRIPT_URL);
-        url.searchParams.append("action", "getData");
+  // === ZMIENNE GLOBALNE ===
+  let expensesData = [];
 
-        const response = await fetch(url.toString());
-        if (!response.ok) throw new Error("Błąd pobierania danych z serwera");
+  // === POBIERANIE DANYCH Z SERWERA (GET) ===
+  async function fetchData() {
+    try {
+      const url = new URL(SCRIPT_URL);
+      url.searchParams.append("action", "getData");
+      const response = await fetch(url.toString());
+      if (!response.ok) throw new Error("Błąd pobierania danych z serwera");
+      expensesData = await response.json();
+      applyFiltersAndRender();
+    } catch (error) {
+      // W razie błędu - przykładowe dane demo do lokalnej pracy:
+      expensesData = [
+        {data:"2025-06-01", typ:"Remont", nazwa:"Farba", model:"Biała", pomieszczenie:"Salon", kategoria:"Materiały", kwota:350.00, dokument:"FV123", dodajacy:"Jan", kto_placi:"Jan"},
+        {data:"2025-06-05", typ:"Usługa", nazwa:"Malarz", model:"", pomieszczenie:"Salon", kategoria:"Robocizna", kwota:600.00, dokument:"FV124", dodajacy:"Anna", kto_placi:"Anna"},
+        {data:"2025-06-10", typ:"Zakup", nazwa:"Lampa", model:"XYZ", pomieszczenie:"Sypialnia", kategoria:"Wyposażenie", kwota:200.00, dokument:"FV125", dodajacy:"Jan", kto_placi:"Jan"}
+      ];
+      applyFiltersAndRender();
+    }
+  }
 
-        expensesData = await response.json();
-        applyFiltersAndRender();
-      } catch (error) {
-        alert("Błąd podczas pobierania danych: " + error.message);
-      }
+  // === RENDEROWANIE TABELI Z FILTRAMI ===
+  function applyFiltersAndRender() {
+    const filterDodajacy = document.getElementById("filterDodajacy").value.trim().toLowerCase();
+    const filterKtoPlaci = document.getElementById("filterKtoPlaci").value.trim().toLowerCase();
+
+    let filtered = expensesData;
+
+    if (filterDodajacy !== "") {
+      filtered = filtered.filter(e => (e.dodajacy || "").toLowerCase().includes(filterDodajacy));
+    }
+    if (filterKtoPlaci !== "") {
+      filtered = filtered.filter(e => (e.kto_placi || "").toLowerCase().includes(filterKtoPlaci));
     }
 
-    // Filtruj i renderuj tabelę + wykres + podsumowania
-    function applyFiltersAndRender() {
-      const filterDodajacy = document.getElementById("filterDodajacy").value.trim().toLowerCase();
-      const filterKtoPlaci = document.getElementById("filterKtoPlaci").value.trim().toLowerCase();
-      const filterPomieszczenie = document.getElementById("filterPomieszczenie").value.trim().toLowerCase();
-      const filterKategoria = document.getElementById("filterKategoria").value.trim().toLowerCase();
-      const filterNazwa = document.getElementById("filterNazwa").value.trim().toLowerCase();
-      const filterModel = document.getElementById("filterModel").value.trim().toLowerCase();
+    renderTable(filtered);
+    renderChart(filtered);
+  }
 
-      let filtered = expensesData;
+  // === RENDEROWANIE TABELI ===
+  function renderTable(data) {
+    const tbody = document.querySelector("#expensesTable tbody");
+    tbody.innerHTML = "";
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;">Brak danych do wyświetlenia</td></tr>';
+      return;
+    }
+    data.forEach((item, index) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${item.data || ''}</td>
+        <td>${item.typ || ''}</td>
+        <td>${item.nazwa || ''}</td>
+        <td>${item.model || ''}</td>
+        <td>${item.pomieszczenie || ''}</td>
+        <td>${item.kategoria || ''}</td>
+        <td>${item.kwota.toFixed(2) || ''}</td>
+        <td>${item.dokument || ''}</td>
+        <td>${item.dodajacy || ''}</td>
+        <td>${item.kto_placi || ''}</td>
+        <td>
+          <button class="action-btn" onclick="startEdit(${index})">Edytuj</button>
+          <button class="action-btn" onclick="deleteRow(${index})" disabled title="Usuwanie niezaimplementowane">Usuń</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
 
-      if (filterDodajacy !== "") {
-        filtered = filtered.filter(e => (e.dodajacy || "").toLowerCase().includes(filterDodajacy));
-      }
-      if (filterKtoPlaci !== "") {
-        filtered = filtered.filter(e => (e.kto_placi || "").toLowerCase().includes(filterKtoPlaci));
-      }
-      if (filterPomieszczenie !== "") {
-        filtered = filtered.filter(e => (e.pomieszczenie || "").toLowerCase().includes(filterPomieszczenie));
-      }
-      if (filterKategoria !== "") {
-        filtered = filtered.filter(e => (e.kategoria || "").toLowerCase().includes(filterKategoria));
-      }
-      if (filterNazwa !== "") {
-        filtered = filtered.filter(e => (e.nazwa || "").toLowerCase().includes(filterNazwa));
-      }
-      if (filterModel !== "") {
-        filtered = filtered.filter(e => (e.model || "").toLowerCase().includes(filterModel));
-      }
+  // === EDYCJA WPISU ===
+  function startEdit(index) {
+    const item = expensesData[index];
+    document.getElementById("formTitle").textContent = "Edytuj wydatek";
+    document.getElementById("editRow").value = index;
+    document.getElementById("data").value = item.data || "";
+    document.getElementById("typ").value = item.typ || "";
+    document.getElementById("nazwa").value = item.nazwa || "";
+    document.getElementById("model").value = item.model || "";
+    document.getElementById("pomieszczenie").value = item.pomieszczenie || "";
+    document.getElementById("kategoria").value = item.kategoria || "";
+    document.getElementById("kwota").value = item.kwota || "";
+    document.getElementById("dokument").value = item.dokument || "";
+    document.getElementById("dodajacy").value = item.dodajacy || "";
+    document.getElementById("kto_placi").value = item.kto_placi || "";
+    document.getElementById("cancelEdit").style.display = "inline-block";
+  }
 
-      renderTable(filtered);
-      renderSummary(filtered);
-      renderChart(filtered);
+  // Anulowanie edycji
+  document.getElementById("cancelEdit").addEventListener("click", () => {
+    resetForm();
+  });
+
+  // Reset formularza do trybu dodawania
+  function resetForm() {
+    document.getElementById("formTitle").textContent = "Dodaj nowy wydatek";
+    document.getElementById("editRow").value = "";
+    document.getElementById("expenseForm").reset();
+    clearErrors();
+    document.getElementById("cancelEdit").style.display = "none";
+  }
+
+  // Walidacja formularza
+  function validateForm() {
+    clearErrors();
+    let valid = true;
+
+    const data = document.getElementById("data").value.trim();
+    const typ = document.getElementById("typ").value.trim();
+    const kwota = document.getElementById("kwota").value.trim();
+
+    if (!data) {
+      document.getElementById("errorData").textContent = "Data jest wymagana";
+      valid = false;
+    }
+    if (!typ) {
+      document.getElementById("errorTyp").textContent = "Typ jest wymagany";
+      valid = false;
+    }
+    if (!kwota || isNaN(kwota) || Number(kwota) <= 0) {
+      document.getElementById("errorKwota").textContent = "Kwota musi być dodatnią liczbą";
+      valid = false;
     }
 
-    // Renderowanie tabeli
-    function renderTable(data) {
-      const tbody = document.querySelector("#expensesTable tbody");
-      tbody.innerHTML = "";
+    return valid;
+  }
 
-      if (data.length === 0) {
-        tbody.innerHTML = "<tr><td colspan='11' style='text-align:center;'>Brak danych do wyświetlenia</td></tr>";
-        return;
-      }
+  function clearErrors() {
+    document.getElementById("errorData").textContent = "";
+    document.getElementById("errorTyp").textContent = "";
+    document.getElementById("errorKwota").textContent = "";
+  }
 
-      data.forEach((row, i) => {
-        const tr = document.createElement("tr");
+  // Obsługa submit formularza
+  document.getElementById("expenseForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
 
-        tr.innerHTML = `
-          <td>${row.data || ""}</td>
-          <td>${row.typ || ""}</td>
-          <td>${row.nazwa || ""}</td>
-          <td>${row.model || ""}</td>
-          <td>${row.pomieszczenie || ""}</td>
-          <td>${row.kategoria || ""}</td>
-          <td style="text-align:right;">${Number(row.kwota).toFixed(2)}</td>
-          <td>${row.dokument || ""}</td>
-          <td>${row.dodajacy || ""}</td>
-          <td>${row.kto_placi || ""}</td>
-          <td>
-            <button class="action-btn" onclick="editExpense(${i})">✏️</button>
-            <button class="action-btn" onclick="deleteExpense(${i})" style="color:#a00;">🗑️</button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
+    if (!validateForm()) return;
+
+    const newEntry = {
+      data: document.getElementById("data").value.trim(),
+      typ: document.getElementById("typ").value.trim(),
+      nazwa: document.getElementById("nazwa").value.trim(),
+      model: document.getElementById("model").value.trim(),
+      pomieszczenie: document.getElementById("pomieszczenie").value.trim(),
+      kategoria: document.getElementById("kategoria").value.trim(),
+      kwota: parseFloat(document.getElementById("kwota").value.trim()),
+      dokument: document.getElementById("dokument").value.trim(),
+      dodajacy: document.getElementById("dodajacy").value.trim(),
+      kto_placi: document.getElementById("kto_placi").value.trim()
+    };
+
+    const editIndex = document.getElementById("editRow").value;
+
+    if (editIndex === "") {
+      // Dodawanie nowego
+      expensesData.push(newEntry);
+      alert("Dodano nowy wydatek lokalnie (do implementacji wysyłanie na serwer)");
+    } else {
+      // Edycja istniejącego
+      expensesData[editIndex] = newEntry;
+      alert("Zaktualizowano wydatek lokalnie (do implementacji wysyłanie na serwer)");
     }
 
-    // Renderowanie podsumowania sumy wydatków i kto ile wydał
-    function renderSummary(data) {
-      const total = data.reduce((acc, e) => acc + parseFloat(e.kwota || 0), 0);
-      const summaryDiv = document.getElementById("summary");
-      summaryDiv.textContent = `Do tej pory wydano: ${total.toFixed(2)} zł`;
+    resetForm();
+    applyFiltersAndRender();
 
-      // Dodatkowo, kto ile wydał:
-      // Możemy pokazać w konsoli lub rozbudować UI, tutaj przykład w konsoli:
-      const ktoPlaciSums = {};
-      data.forEach(e => {
-        const key = e.kto_placi || "Nieznany";
-        ktoPlaciSums[key] = (ktoPlaciSums[key] || 0) + parseFloat(e.kwota || 0);
-      });
-      console.log("Podsumowanie wydatków wg 'Kto płaci':", ktoPlaciSums);
-    }
+    // TODO: tutaj wywołaj funkcję POST do Apps Script, aby zapisać zmiany na serwerze
+  });
 
-    // Renderowanie wykresu miesięcznego wydatków
-    let chartInstance = null;
-    function renderChart(data) {
-      // Agreguj sumy miesięczne (YYYY-MM)
-      const monthlySums = {};
+  // Usuwanie (na razie zablokowane)
+  function deleteRow(index) {
+    alert("Usuwanie niezaimplementowane");
+  }
 
-      data.forEach(e => {
-        if (!e.data) return;
-        const ym = e.data.slice(0,7); // "YYYY-MM"
-        monthlySums[ym] = (monthlySums[ym] || 0) + parseFloat(e.kwota || 0);
-      });
+  // Filtry
+  document.getElementById("filterDodajacy").addEventListener("input", applyFiltersAndRender);
+  document.getElementById("filterKtoPlaci").addEventListener("input", applyFiltersAndRender);
+  document.getElementById("clearFilters").addEventListener("click", () => {
+    document.getElementById("filterDodajacy").value = "";
+    document.getElementById("filterKtoPlaci").value = "";
+    applyFiltersAndRender();
+  });
 
-      // Sortowanie miesięcy rosnąco
-      const labels = Object.keys(monthlySums).sort();
-      const values = labels.map(l => monthlySums[l]);
+  // === WYKRES - PODSUMOWANIE WYDATKÓW WG KATEGORII ===
+  let categoryChart = null;
+  function renderChart(data) {
+    // Podsumuj kwoty wg kategorii
+    const sums = {};
+    data.forEach(item => {
+      const cat = item.kategoria || "Brak kategorii";
+      sums[cat] = (sums[cat] || 0) + item.kwota;
+    });
+    const labels = Object.keys(sums);
+    const values = labels.map(k => sums[k]);
 
-      const ctx = document.getElementById("expensesChart").getContext("2d");
+    const ctx = document.getElementById("categoryChart").getContext("2d");
 
-      if(chartInstance) chartInstance.destroy();
-
-      chartInstance = new Chart(ctx, {
-        type: 'bar',
+    if (categoryChart) {
+      categoryChart.data.labels = labels;
+      categoryChart.data.datasets[0].data = values;
+      categoryChart.update();
+    } else {
+      categoryChart = new Chart(ctx, {
+        type: "bar",
         data: {
-          labels,
+          labels: labels,
           datasets: [{
-            label: 'Wydatki miesięczne (zł)',
+            label: "Kwota wydatków (PLN)",
             data: values,
-            backgroundColor: 'rgba(54, 162, 235, 0.6)',
-            borderColor: 'rgba(54, 162, 235, 1)',
-            borderWidth: 1,
-            borderRadius: 4,
+            backgroundColor: "rgba(54, 162, 235, 0.7)"
           }]
         },
         options: {
-          scales: {
-            y: {
-              beginAtZero: true,
-              ticks: {
-                callback: val => val.toFixed(2)
-              }
-            }
-          },
+          responsive: true,
           plugins: {
             legend: { display: true },
-            tooltip: {
-              callbacks: {
-                label: ctx => ctx.parsed.y.toFixed(2) + " zł"
-              }
-            }
+            tooltip: { enabled: true }
           },
-          responsive: true,
-          maintainAspectRatio: false
+          scales: {
+            y: { beginAtZero: true }
+          }
         }
       });
     }
-
-    // Obsługa formularza dodawania i edycji
-    document.getElementById("expenseForm").addEventListener("submit", async function(e) {
-      e.preventDefault();
-
-      clearErrors();
-
-      // Walidacja
-      const dataVal = this.data.value.trim();
-      const typVal = this.typ.value.trim();
-      const kwotaVal = this.kwota.value.trim();
-
-      let valid = true;
-      if (!dataVal) {
-        showError("errorData", "Pole data jest wymagane");
-        valid = false;
-      }
-      if (!typVal) {
-        showError("errorTyp", "Pole typ jest wymagane");
-        valid = false;
-      }
-      if (!kwotaVal || isNaN(kwotaVal) || parseFloat(kwotaVal) <= 0) {
-        showError("errorKwota", "Podaj prawidłową kwotę większą od 0");
-        valid = false;
-      }
-
-      if (!valid) return;
-
-      const editIndex = document.getElementById("editRow").value;
-
-      // Pobieramy dane z formularza
-      const newExpense = {
-        data: dataVal,
-        typ: typVal,
-        nazwa: this.nazwa.value.trim(),
-        model: this.model.value.trim(),
-        pomieszczenie: this.pomieszczenie.value.trim(),
-        kategoria: this.kategoria.value.trim(),
-        kwota: parseFloat(kwotaVal).toFixed(2),
-        dokument: this.dokument.value.trim(),
-        dodajacy: this.dodajacy.value.trim(),
-        kto_placi: this.kto_placi.value.trim(),
-      };
-
-      if (editIndex === "") {
-        // Dodawanie nowego
-        await addExpense(newExpense);
-      } else {
-        // Edycja istniejącego
-        await updateExpense(parseInt(editIndex), newExpense);
-      }
-
-      resetForm();
-      await fetchData();
-    });
-
-    function showError(id, message) {
-      const el = document.getElementById(id);
-      if(el) el.textContent = message;
-    }
-    function clearErrors() {
-      ["errorData", "errorTyp", "errorKwota"].forEach(id => {
-        const el = document.getElementById(id);
-        if(el) el.textContent = "";
-      });
-    }
-
-    // Resetowanie formularza po zapisie lub anulowaniu
-    function resetForm() {
-      const form = document.getElementById("expenseForm");
-      form.reset();
-      document.getElementById("editRow").value = "";
-      document.getElementById("formTitle").textContent = "Dodaj nowy wydatek";
-      document.getElementById("cancelEdit").style.display = "none";
-    }
-    document.getElementById("cancelEdit").addEventListener("click", resetForm);
-
-    // Edycja pozycji w tabeli
-    function editExpense(index) {
-      const expense = expensesData[index];
-      if (!expense) return;
-
-      document.getElementById("data").value = expense.data || "";
-      document.getElementById("typ").value = expense.typ || "";
-      document.getElementById("nazwa").value = expense.nazwa || "";
-      document.getElementById("model").value = expense.model || "";
-      document.getElementById("pomieszczenie").value = expense.pomieszczenie || "";
-      document.getElementById("kategoria").value = expense.kategoria || "";
-      document.getElementById("kwota").value = expense.kwota || "";
-      document.getElementById("dokument").value = expense.dokument || "";
-      document.getElementById("dodajacy").value = expense.dodajacy || "";
-      document.getElementById("kto_placi").value = expense.kto_placi || "";
-      document.getElementById("editRow").value = index;
-
-      document.getElementById("formTitle").textContent = "Edytuj wydatek";
-      document.getElementById("cancelEdit").style.display = "inline-block";
-      window.scrollTo({top:0, behavior: 'smooth'});
-    }
-
-    // Usuwanie pozycji
-    async function deleteExpense(index) {
-      if(!confirm("Czy na pewno chcesz usunąć ten wydatek?")) return;
-
-      const expense = expensesData[index];
-      if(!expense) return;
-
-      try {
-        const url = new URL(SCRIPT_URL);
-        url.searchParams.append("action", "deleteData");
-        url.searchParams.append("data", JSON.stringify(expense));
-
-        const response = await fetch(url.toString(), { method: "POST" });
-        if(!response.ok) throw new Error("Błąd podczas usuwania danych");
-
-        await fetchData();
-      } catch (error) {
-        alert("Błąd podczas usuwania: " + error.message);
-      }
-    }
-
-    // Dodawanie nowego wydatku (wysyłka do Google Apps Script)
-    async function addExpense(expense) {
-      try {
-        const url = new URL(SCRIPT_URL);
-        url.searchParams.append("action", "addData");
-        url.searchParams.append("data", JSON.stringify(expense));
-
-        const response = await fetch(url.toString(), { method: "POST" });
-        if (!response.ok) throw new Error("Błąd podczas zapisu danych");
-
-      } catch (error) {
-        alert("Błąd podczas dodawania wydatku: " + error.message);
-      }
-    }
-
-    // Aktualizacja wydatku (usuń i dodaj ponownie lub jeśli masz dedykowaną metodę update - użyj jej)
-    async function updateExpense(index, expense) {
-      // Możemy zaimplementować delete + add albo update jeśli wspierane
-      // Tu uproszczenie: usunięcie oryginału + dodanie nowego (w praktyce lepiej update)
-
-      // Najpierw usuń oryginał
-      const original = expensesData[index];
-      if (!original) return;
-
-      try {
-        const urlDelete = new URL(SCRIPT_URL);
-        urlDelete.searchParams.append("action", "deleteData");
-        urlDelete.searchParams.append("data", JSON.stringify(original));
-
-        const resDelete = await fetch(urlDelete.toString(), { method: "POST" });
-        if (!resDelete.ok) throw new Error("Błąd usuwania starego rekordu");
-
-        // Następnie dodaj nowy
-        await addExpense(expense);
-
-      } catch (error) {
-        alert("Błąd podczas aktualizacji wydatku: " + error.message);
-      }
-    }
-
-    // Wyczyść filtry
-    document.getElementById("clearFilters").addEventListener("click", () => {
-      ["filterDodajacy", "filterKtoPlaci", "filterPomieszczenie", "filterKategoria", "filterNazwa", "filterModel"].forEach(id => {
-        document.getElementById(id).value = "";
-      });
-      applyFiltersAndRender();
-    });
-
-    // Obsługa filtrów na żywo
-    ["filterDodajacy", "filterKtoPlaci", "filterPomieszczenie", "filterKategoria", "filterNazwa", "filterModel"].forEach(id => {
-      document.getElementById(id).addEventListener("input", applyFiltersAndRender);
-    });
+  }
 
   // === GENEROWANIE PDF Z TABELĄ I WYKRESEM ===
   document.getElementById("exportPdfBtn").addEventListener("click", async () => {
