@@ -517,13 +517,37 @@ async function addExpense(expense) {
 
 // Zmodyfikowana funkcja updateExpense
 async function updateExpense(index, newExpense) {
-  const result = await sendDataToServer('updateData', newExpense);
-  if (result.status === 'success') {
-    alert('Zaktualizowano pomyślnie!');
-    await fetchData();
-    return true;
-  } else {
-    alert('Błąd: ' + (result.message || 'Nieznany błąd'));
+  const oldExpense = expensesData[index];
+  if (!oldExpense) return false;
+
+  // Dodajemy _rowNum do danych
+  const updateData = {
+    ...newExpense,
+    _rowNum: oldExpense._rowNum,
+    action: "updateData"
+  };
+
+  try {
+    const response = await fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updateData)
+    });
+    
+    if (!response.ok) throw new Error("Błąd podczas aktualizacji danych");
+    const result = await response.json();
+    
+    if (result.status === "success") {
+      alert("Pomyślnie zaktualizowano wydatek!");
+      await fetchData();
+      return true;
+    } else {
+      throw new Error(result.message || "Nieznany błąd");
+    }
+  } catch (error) {
+    alert("Błąd podczas aktualizacji: " + error.message);
     return false;
   }
 }
