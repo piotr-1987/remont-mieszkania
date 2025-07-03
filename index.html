@@ -474,118 +474,73 @@ function renderTable(data) {
       window.scrollTo({top:0, behavior: 'smooth'});
     }
 
-    // Usuwanie pozycji
-    async function deleteExpense(index) {
-      if(!confirm("Czy na pewno chcesz usunąć ten wydatek?")) return;
-
-      const expense = expensesData[index];
-      if(!expense) return;
-
-      try {
-        const url = new URL(SCRIPT_URL);
-        url.searchParams.append("action", "deleteData");
-        url.searchParams.append("data", JSON.stringify(expense));
-
-        const response = await fetch(url.toString(), { method: "POST" });
-        if(!response.ok) throw new Error("Błąd podczas usuwania danych");
-
-        await fetchData();
-      } catch (error) {
-        alert("Błąd podczas usuwania: " + error.message);
-      }
-    }
-
-  // Zmodyfikowana funkcja addExpense
-async function addExpense(expense) {
+   // Zmodyfikowana funkcja do wysyłania danych
+async function sendDataToServer(action, payload) {
   try {
     const response = await fetch(SCRIPT_URL, {
-      method: "POST",
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        action: "addData",
-        ...expense
-      })
+        action: action,
+        ...payload
+      }),
+      redirect: 'follow' // Obsługa przekierowań GAS
     });
-    
-    if (!response.ok) throw new Error("Błąd podczas zapisu danych");
-    const result = await response.json();
-    
-    if (result.status === "success") {
-      alert("Pomyślnie dodano wydatek!");
-      return true;
-    } else {
-      throw new Error(result.message || "Nieznany błąd");
+
+    // Obsługa przekierowania
+    if (response.redirected) {
+      const redirectedResponse = await fetch(response.url);
+      return await redirectedResponse.json();
     }
+    
+    return await response.json();
   } catch (error) {
-    alert("Błąd podczas dodawania wydatku: " + error.message);
-    return false;
+    console.error('Błąd:', error);
+    return { status: 'error', message: error.message };
   }
 }
-   // Zmodyfikowana funkcja deleteExpense
-async function deleteExpense(index) {
-  if (!confirm("Czy na pewno chcesz usunąć ten wydatek?")) return false;
 
-  const expense = expensesData[index];
-  if (!expense) return false;
-
-  try {
-    const response = await fetch(SCRIPT_URL, {
-      method: "POST",
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: "deleteData",
-        ...expense
-      })
-    });
-    
-    if (!response.ok) throw new Error("Błąd podczas usuwania danych");
-    const result = await response.json();
-    
-    if (result.status === "success") {
-      alert("Pomyślnie usunięto wydatek!");
-      return true;
-    } else {
-      throw new Error(result.message || "Nieznany błąd");
-    }
-  } catch (error) {
-    alert("Błąd podczas usuwania: " + error.message);
+// Zmodyfikowana funkcja addExpense
+async function addExpense(expense) {
+  const result = await sendDataToServer('addData', expense);
+  if (result.status === 'success') {
+    alert('Dodano pomyślnie!');
+    await fetchData();
+    return true;
+  } else {
+    alert('Błąd: ' + (result.message || 'Nieznany błąd'));
     return false;
   }
 }
 
 // Zmodyfikowana funkcja updateExpense
 async function updateExpense(index, newExpense) {
-  const oldExpense = expensesData[index];
-  if (!oldExpense) return false;
+  const result = await sendDataToServer('updateData', newExpense);
+  if (result.status === 'success') {
+    alert('Zaktualizowano pomyślnie!');
+    await fetchData();
+    return true;
+  } else {
+    alert('Błąd: ' + (result.message || 'Nieznany błąd'));
+    return false;
+  }
+}
 
-  try {
-    const response = await fetch(SCRIPT_URL, {
-      method: "POST",
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: "updateData",
-        oldData: oldExpense,
-        newData: newExpense
-      })
-    });
-    
-    if (!response.ok) throw new Error("Błąd podczas aktualizacji danych");
-    const result = await response.json();
-    
-    if (result.status === "success") {
-      alert("Pomyślnie zaktualizowano wydatek!");
-      return true;
-    } else {
-      throw new Error(result.message || "Nieznany błąd");
-    }
-  } catch (error) {
-    alert("Błąd podczas aktualizacji: " + error.message);
+// Zmodyfikowana funkcja deleteExpense
+async function deleteExpense(index) {
+  if (!confirm('Czy na pewno chcesz usunąć ten wydatek?')) return false;
+  
+  const expense = expensesData[index];
+  const result = await sendDataToServer('deleteData', expense);
+  
+  if (result.status === 'success') {
+    alert('Usunięto pomyślnie!');
+    await fetchData();
+    return true;
+  } else {
+    alert('Błąd: ' + (result.message || 'Nieznany błąd'));
     return false;
   }
 }
