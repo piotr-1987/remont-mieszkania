@@ -1,203 +1,621 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="UTF-8" />
-<title>Zarządzanie wydatkami remontu</title>
-<style>
-  table { border-collapse: collapse; width: 100%; }
-  th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-  th { background-color: #eee; }
-  input, select { width: 100%; }
-  button { margin-top: 10px; }
-</style>
+  <meta charset="UTF-8" />
+  <title>Zarządzanie Wydatkami Mieszkanie 56</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 1100px; margin: 20px auto; }
+    img#logo { max-width: 100%; height: auto; border-radius: 8px; margin-bottom: 20px; }
+    form > div { margin-bottom: 10px; }
+    label { display: inline-block; width: 130px; font-weight: bold; vertical-align: top; }
+    input, select { width: 220px; padding: 5px; }
+    input[type="number"] { width: 100px; }
+    button { margin-right: 8px; padding: 6px 12px; cursor: pointer; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #f7f7f7; }
+    .action-btn { margin-right: 5px; }
+    .error { color: red; margin-top: 5px; }
+    .filter-section { margin-bottom: 20px; }
+    #chartContainer { width: 100%; max-width: 700px; margin-top: 30px; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 </head>
 <body>
 
-<h2>Lista wydatków remontu</h2>
-<table id="expensesTable">
-  <thead>
-    <tr id="tableHeader"></tr>
-  </thead>
-  <tbody></tbody>
-</table>
+  <!-- Logo -->
+  <img id="logo" src="https://jakon-inwest.pl/upload/pictures/budynekb.jpg" alt="Wizualizacja Sielskie Podolany" />
 
-<h3>Dodaj / Edytuj wydatek</h3>
-<form id="expenseForm">
-  <input type="hidden" id="ID" />
-  <label>Nr dokumentu:<br/><input type="text" id="Nr dokumentu" required /></label><br/>
-  <label>Kategoria:<br/><input type="text" id="Kategoria" required /></label><br/>
-  <label>Pomieszczenie:<br/><input type="text" id="Pomieszczenie" /></label><br/>
-  <label>Data:<br/><input type="date" id="Data" required /></label><br/>
-  <label>Nazwa produktu:<br/><input type="text" id="Nazwa produktu" /></label><br/>
-  <label>Model produktu:<br/><input type="text" id="Model produktu" /></label><br/>
-  <label>Kwota:<br/><input type="number" step="0.01" id="Kwota" required /></label><br/>
-  <button type="submit">Zapisz</button>
-  <button type="button" id="cancelEdit">Anuluj edycję</button>
-</form>
+  <h1>Zarządzanie Wydatkami Mieszkanie 56</h1>
+
+<!-- Filtry -->
+  <div class="filter-section">
+    <label for="filterDodajacy">Dodający:</label>
+    <input type="text" id="filterDodajacy" placeholder="Wpisz nazwę..." />
+    <label for="filterKtoPlaci" style="margin-left: 20px;">Kto płaci:</label>
+    <input type="text" id="filterKtoPlaci" placeholder="Wpisz nazwę..." />
+  </div>
+  <div class="filter-section">
+    <label for="filterPomieszczenie">Pomieszczenie:</label>
+    <input type="text" id="filterPomieszczenie" placeholder="Wpisz pomieszczenie..." />
+    <label for="filterKategoria" style="margin-left: 20px;">Kategoria:</label>
+    <input type="text" id="filterKategoria" placeholder="Wpisz kategorię..." />
+  </div>
+  <div class="filter-section">
+    <label for="filterNazwa">Nazwa:</label>
+    <input type="text" id="filterNazwa" placeholder="Wpisz nazwę..." />
+    <label for="filterModel" style="margin-left: 20px;">Model:</label>
+    <input type="text" id="filterModel" placeholder="Wpisz model..." />
+  </div>
+  <button id="clearFilters">Wyczyść filtry</button>
+
+  <!-- Tabela danych -->
+  <table id="expensesTable" aria-label="Tabela wydatków">
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Typ</th>
+        <th>Nazwa</th>
+        <th>Model</th>
+        <th>Pomieszczenie</th>
+        <th>Kategoria</th>
+        <th>Kwota</th>
+        <th>Dokument</th>
+        <th>Dodający</th>
+        <th>Kto płaci</th>
+        <th>Akcje</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  
+ <div id="summary">Do tej pory wydano: 0.00 zł</div>
+  
+  <!-- Formularz dodawania/edycji -->
+  <h2 id="formTitle">Dodaj nowy wydatek</h2>
+  <form id="expenseForm" novalidate>
+    <input type="hidden" id="editRow" value="" />
+    <div>
+      <label for="data">Data*:</label>
+      <input type="date" id="data" name="data" required />
+      <span class="error" id="errorData"></span>
+    </div>
+    <div>
+      <label for="typ">Typ*:</label>
+      <input type="text" id="typ" name="typ" required />
+      <span class="error" id="errorTyp"></span>
+    </div>
+    <div>
+      <label for="nazwa">Nazwa:</label>
+      <input type="text" id="nazwa" name="nazwa" />
+    </div>
+    <div>
+      <label for="model">Model:</label>
+      <input type="text" id="model" name="model" />
+    </div>
+    <div>
+      <label for="pomieszczenie">Pomieszczenie:</label>
+      <input type="text" id="pomieszczenie" name="pomieszczenie" />
+    </div>
+    <div>
+      <label for="kategoria">Kategoria:</label>
+      <input type="text" id="kategoria" name="kategoria" />
+    </div>
+    <div>
+      <label for="kwota">Kwota*:</label>
+      <input type="number" id="kwota" name="kwota" step="0.01" required />
+      <span class="error" id="errorKwota"></span>
+    </div>
+    <div>
+      <label for="dokument">Dokument:</label>
+      <input type="text" id="dokument" name="dokument" />
+    </div>
+    <div>
+      <label for="dodajacy">Dodający:</label>
+      <input type="text" id="dodajacy" name="dodajacy" />
+    </div>
+    <div>
+      <label for="kto_placi">Kto płaci:</label>
+      <input type="text" id="kto_placi" name="kto_placi" />
+    </div>
+    <button type="submit">Zapisz</button>
+    <button type="button" id="cancelEdit" style="display:none;">Anuluj</button>
+  </form>
+
+  <!-- Wykres podsumowania -->
+  <div id="chartContainer">
+    <canvas id="categoryChart" aria-label="Wykres wydatków wg kategorii" role="img"></canvas>
+     <div id="chartLegend"></div>
+  </div>
+
+  <!-- Przyciski eksportu -->
+  <div style="margin-top: 20px;">
+    <button id="exportPdfBtn">Eksportuj do PDF</button>
+  </div>
 
 <script>
-  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzjP7UdZdqoIEGK98tGH6RAK9U39cVmMMBlZe2h7DcAPLG9VyNq_30qCJvwz-IrXfn-EA/exec';
+  // === KONFIGURACJA ===
+  // Podmień na swój URL Google Apps Script WebApp jeśli masz
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzjP7UdZdqoIEGK98tGH6RAK9U39cVmMMBlZe2h7DcAPLG9VyNq_30qCJvwz-IrXfn-EA/exec";
 
-  let expenses = [];
-  let editingID = null;
+  // === ZMIENNE GLOBALNE ===
+  let expensesData = [];
 
-  // Funkcja pomocnicza do wywołań backendu przez google.script.run (w tym wypadku musisz użyć Google Apps Script Web App lub REST API)
-  // Tutaj przykład fetch - zakładam, że twój backend ma odpowiednie endpointy REST (musiałbyś je stworzyć)
-  
-  // W praktyce Google Apps Script wymaga użycia google.script.run z HTML Service lub fetch do endpointów REST (publish as web app)
-  
-  async function fetchExpenses() {
-    // Przykład jak to może wyglądać jeśli masz endpoint REST GET /getExpenses
-    const response = await fetch(SCRIPT_URL + '?action=getExpenses');
-    const data = await response.json();
-    return data;
-  }
-
-  // Pobierz dane i wyświetl w tabeli
-  async function loadExpenses() {
+  // === POBIERANIE DANYCH Z SERWERA (GET) ===
+  async function fetchData() {
     try {
-      // Pobierz dane z backendu
-      const response = await fetch(SCRIPT_URL + '?action=getExpenses');
-      expenses = await response.json();
-      renderTable(expenses);
-    } catch(e) {
-      alert('Błąd pobierania danych: ' + e.message);
+      const url = new URL(SCRIPT_URL);
+      url.searchParams.append("action", "getData");
+      const response = await fetch(url.toString());
+      if (!response.ok) throw new Error("Błąd pobierania danych z serwera");
+      expensesData = await response.json();
+      applyFiltersAndRender();
+    } catch (error) {
+      // W razie błędu - przykładowe dane demo do lokalnej pracy:
+      expensesData = [
+        {data:"2025-06-01", typ:"Remont", nazwa:"Farba", model:"Biała", pomieszczenie:"Salon", kategoria:"Materiały", kwota:350.00, dokument:"FV123", dodajacy:"Jan", kto_placi:"Jan"},
+        {data:"2025-06-05", typ:"Usługa", nazwa:"Malarz", model:"", pomieszczenie:"Salon", kategoria:"Robocizna", kwota:600.00, dokument:"FV124", dodajacy:"Anna", kto_placi:"Anna"},
+        {data:"2025-06-10", typ:"Zakup", nazwa:"Lampa", model:"XYZ", pomieszczenie:"Sypialnia", kategoria:"Wyposażenie", kwota:200.00, dokument:"FV125", dodajacy:"Jan", kto_placi:"Jan"}
+      ];
+      applyFiltersAndRender();
     }
   }
 
-  // Renderuj nagłówki i wiersze tabeli
-  function renderTable(data) {
-    const tableHeader = document.getElementById('tableHeader');
-    const tbody = document.querySelector('#expensesTable tbody');
-    tbody.innerHTML = '';
+  // === RENDEROWANIE TABELI Z FILTRAMI ===
+  function applyFiltersAndRender() {
+      const filterDodajacy = document.getElementById("filterDodajacy").value.trim().toLowerCase();
+      const filterKtoPlaci = document.getElementById("filterKtoPlaci").value.trim().toLowerCase();
+      const filterPomieszczenie = document.getElementById("filterPomieszczenie").value.trim().toLowerCase();
+      const filterKategoria = document.getElementById("filterKategoria").value.trim().toLowerCase();
+      const filterNazwa = document.getElementById("filterNazwa").value.trim().toLowerCase();
+      const filterModel = document.getElementById("filterModel").value.trim().toLowerCase();
 
-    if (data.length === 0) {
-      tableHeader.innerHTML = '';
-      return;
+    let filtered = expensesData;
+
+      if (filterDodajacy !== "") {
+        filtered = filtered.filter(e => (e.dodajacy || "").toLowerCase().includes(filterDodajacy));
+      }
+      if (filterKtoPlaci !== "") {
+        filtered = filtered.filter(e => (e.kto_placi || "").toLowerCase().includes(filterKtoPlaci));
+      }
+      if (filterPomieszczenie !== "") {
+        filtered = filtered.filter(e => (e.pomieszczenie || "").toLowerCase().includes(filterPomieszczenie));
+      }
+      if (filterKategoria !== "") {
+        filtered = filtered.filter(e => (e.kategoria || "").toLowerCase().includes(filterKategoria));
+      }
+      if (filterNazwa !== "") {
+        filtered = filtered.filter(e => (e.nazwa || "").toLowerCase().includes(filterNazwa));
+      }
+      if (filterModel !== "") {
+        filtered = filtered.filter(e => (e.model || "").toLowerCase().includes(filterModel));
+      }
+
+      renderTable(filtered);
+      renderSummary(filtered);
+      renderChart(filtered);
     }
 
-    // Wyświetl nagłówki
-    const headers = Object.keys(data[0]);
-    tableHeader.innerHTML = '';
-    headers.forEach(h => {
-      const th = document.createElement('th');
-      th.textContent = h;
-      tableHeader.appendChild(th);
-    });
-    // Dodaj kolumnę Akcje
-    const th = document.createElement('th');
-    th.textContent = 'Akcje';
-    tableHeader.appendChild(th);
+  // === RENDEROWANIE TABELI ===
+function renderTable(data) {
+      const tbody = document.querySelector("#expensesTable tbody");
+      tbody.innerHTML = "";
 
-    // Wiersze
+      if (data.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='11' style='text-align:center;'>Brak danych do wyświetlenia</td></tr>";
+        return;
+      }
+
+      data.forEach((row, i) => {
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+          <td>${row.data || ""}</td>
+          <td>${row.typ || ""}</td>
+          <td>${row.nazwa || ""}</td>
+          <td>${row.model || ""}</td>
+          <td>${row.pomieszczenie || ""}</td>
+          <td>${row.kategoria || ""}</td>
+          <td style="text-align:right;">${Number(row.kwota).toFixed(2)}</td>
+          <td>${row.dokument || ""}</td>
+          <td>${row.dodajacy || ""}</td>
+          <td>${row.kto_placi || ""}</td>
+          <td>
+            <button class="action-btn" onclick="editExpense(${i})">✏️</button>
+            <button class="action-btn" onclick="deleteExpense(${i})" style="color:#a00;">🗑️</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Renderowanie podsumowania sumy wydatków i kto ile wydał
+    function renderSummary(data) {
+      const total = data.reduce((acc, e) => acc + parseFloat(e.kwota || 0), 0);
+      const summaryDiv = document.getElementById("summary");
+      summaryDiv.textContent = `Do tej pory wydano: ${total.toFixed(2)} zł`;
+
+      // Dodatkowo, kto ile wydał:
+      // Możemy pokazać w konsoli lub rozbudować UI, tutaj przykład w konsoli:
+      const ktoPlaciSums = {};
+      data.forEach(e => {
+        const key = e.kto_placi || "Nieznany";
+        ktoPlaciSums[key] = (ktoPlaciSums[key] || 0) + parseFloat(e.kwota || 0);
+      });
+      console.log("Podsumowanie wydatków wg 'Kto płaci':", ktoPlaciSums);
+    }
+
+    // Renderowanie wykresu miesięcznego wydatków
+    let chartInstance = null;
+    function renderChart(data) {
+      // Agreguj sumy miesięczne (YYYY-MM)
+      const monthlySums = {};
+
+      data.forEach(e => {
+        if (!e.data) return;
+        const ym = e.data.slice(0,7); // "YYYY-MM"
+        monthlySums[ym] = (monthlySums[ym] || 0) + parseFloat(e.kwota || 0);
+      });
+
+      // Sortowanie miesięcy rosnąco
+      const labels = Object.keys(monthlySums).sort();
+      const values = labels.map(l => monthlySums[l]);
+
+      const ctx = document.getElementById("expensesChart").getContext("2d");
+
+      if(chartInstance) chartInstance.destroy();
+
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Wydatki miesięczne (zł)',
+            data: values,
+            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1,
+            borderRadius: 4,
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: val => val.toFixed(2)
+              }
+            }
+          },
+          plugins: {
+            legend: { display: true },
+            tooltip: {
+              callbacks: {
+                label: ctx => ctx.parsed.y.toFixed(2) + " zł"
+              }
+            }
+          },
+          responsive: true,
+          maintainAspectRatio: false
+        }
+      });
+    }
+
+  // === EDYCJA WPISU ===
+  function startEdit(index) {
+    const item = expensesData[index];
+    document.getElementById("formTitle").textContent = "Edytuj wydatek";
+    document.getElementById("editRow").value = index;
+    document.getElementById("data").value = item.data || "";
+    document.getElementById("typ").value = item.typ || "";
+    document.getElementById("nazwa").value = item.nazwa || "";
+    document.getElementById("model").value = item.model || "";
+    document.getElementById("pomieszczenie").value = item.pomieszczenie || "";
+    document.getElementById("kategoria").value = item.kategoria || "";
+    document.getElementById("kwota").value = item.kwota || "";
+    document.getElementById("dokument").value = item.dokument || "";
+    document.getElementById("dodajacy").value = item.dodajacy || "";
+    document.getElementById("kto_placi").value = item.kto_placi || "";
+    document.getElementById("cancelEdit").style.display = "inline-block";
+  }
+
+  // Anulowanie edycji
+  document.getElementById("cancelEdit").addEventListener("click", () => {
+    resetForm();
+  });
+
+  // Reset formularza do trybu dodawania
+  function resetForm() {
+    document.getElementById("formTitle").textContent = "Dodaj nowy wydatek";
+    document.getElementById("editRow").value = "";
+    document.getElementById("expenseForm").reset();
+    clearErrors();
+    document.getElementById("cancelEdit").style.display = "none";
+  }
+
+  // Walidacja formularza
+  function validateForm() {
+    clearErrors();
+    let valid = true;
+
+    const data = document.getElementById("data").value.trim();
+    const typ = document.getElementById("typ").value.trim();
+    const kwota = document.getElementById("kwota").value.trim();
+
+    if (!data) {
+      document.getElementById("errorData").textContent = "Data jest wymagana";
+      valid = false;
+    }
+    if (!typ) {
+      document.getElementById("errorTyp").textContent = "Typ jest wymagany";
+      valid = false;
+    }
+    if (!kwota || isNaN(kwota) || Number(kwota) <= 0) {
+      document.getElementById("errorKwota").textContent = "Kwota musi być dodatnią liczbą";
+      valid = false;
+    }
+
+    return valid;
+  }
+
+  function clearErrors() {
+    document.getElementById("errorData").textContent = "";
+    document.getElementById("errorTyp").textContent = "";
+    document.getElementById("errorKwota").textContent = "";
+  }
+
+  // Obsługa submit formularza
+  // Obsługa formularza dodawania i edycji
+    document.getElementById("expenseForm").addEventListener("submit", async function(e) {
+      e.preventDefault();
+
+      clearErrors();
+
+      // Walidacja
+      const dataVal = this.data.value.trim();
+      const typVal = this.typ.value.trim();
+      const kwotaVal = this.kwota.value.trim();
+
+      let valid = true;
+      if (!dataVal) {
+        showError("errorData", "Pole data jest wymagane");
+        valid = false;
+      }
+      if (!typVal) {
+        showError("errorTyp", "Pole typ jest wymagane");
+        valid = false;
+      }
+      if (!kwotaVal || isNaN(kwotaVal) || parseFloat(kwotaVal) <= 0) {
+        showError("errorKwota", "Podaj prawidłową kwotę większą od 0");
+        valid = false;
+      }
+
+      if (!valid) return;
+
+      const editIndex = document.getElementById("editRow").value;
+
+      // Pobieramy dane z formularza
+      const newExpense = {
+        data: dataVal,
+        typ: typVal,
+        nazwa: this.nazwa.value.trim(),
+        model: this.model.value.trim(),
+        pomieszczenie: this.pomieszczenie.value.trim(),
+        kategoria: this.kategoria.value.trim(),
+        kwota: parseFloat(kwotaVal).toFixed(2),
+        dokument: this.dokument.value.trim(),
+        dodajacy: this.dodajacy.value.trim(),
+        kto_placi: this.kto_placi.value.trim(),
+      };
+
+      if (editIndex === "") {
+        // Dodawanie nowego
+        await addExpense(newExpense);
+      } else {
+        // Edycja istniejącego
+        await updateExpense(parseInt(editIndex), newExpense);
+      }
+
+      resetForm();
+      await fetchData();
+    });
+
+    function showError(id, message) {
+      const el = document.getElementById(id);
+      if(el) el.textContent = message;
+    }
+    function clearErrors() {
+      ["errorData", "errorTyp", "errorKwota"].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.textContent = "";
+      });
+    }
+
+    // Resetowanie formularza po zapisie lub anulowaniu
+    function resetForm() {
+      const form = document.getElementById("expenseForm");
+      form.reset();
+      document.getElementById("editRow").value = "";
+      document.getElementById("formTitle").textContent = "Dodaj nowy wydatek";
+      document.getElementById("cancelEdit").style.display = "none";
+    }
+    document.getElementById("cancelEdit").addEventListener("click", resetForm);
+
+    // Edycja pozycji w tabeli
+    function editExpense(index) {
+      const expense = expensesData[index];
+      if (!expense) return;
+
+      document.getElementById("data").value = expense.data || "";
+      document.getElementById("typ").value = expense.typ || "";
+      document.getElementById("nazwa").value = expense.nazwa || "";
+      document.getElementById("model").value = expense.model || "";
+      document.getElementById("pomieszczenie").value = expense.pomieszczenie || "";
+      document.getElementById("kategoria").value = expense.kategoria || "";
+      document.getElementById("kwota").value = expense.kwota || "";
+      document.getElementById("dokument").value = expense.dokument || "";
+      document.getElementById("dodajacy").value = expense.dodajacy || "";
+      document.getElementById("kto_placi").value = expense.kto_placi || "";
+      document.getElementById("editRow").value = index;
+
+      document.getElementById("formTitle").textContent = "Edytuj wydatek";
+      document.getElementById("cancelEdit").style.display = "inline-block";
+      window.scrollTo({top:0, behavior: 'smooth'});
+    }
+
+    // Usuwanie pozycji
+    async function deleteExpense(index) {
+      if(!confirm("Czy na pewno chcesz usunąć ten wydatek?")) return;
+
+      const expense = expensesData[index];
+      if(!expense) return;
+
+      try {
+        const url = new URL(SCRIPT_URL);
+        url.searchParams.append("action", "deleteData");
+        url.searchParams.append("data", JSON.stringify(expense));
+
+        const response = await fetch(url.toString(), { method: "POST" });
+        if(!response.ok) throw new Error("Błąd podczas usuwania danych");
+
+        await fetchData();
+      } catch (error) {
+        alert("Błąd podczas usuwania: " + error.message);
+      }
+    }
+
+    // Dodawanie nowego wydatku (wysyłka do Google Apps Script)
+    async function addExpense(expense) {
+      try {
+        const url = new URL(SCRIPT_URL);
+        url.searchParams.append("action", "addData");
+        url.searchParams.append("data", JSON.stringify(expense));
+
+        const response = await fetch(url.toString(), { method: "POST" });
+        if (!response.ok) throw new Error("Błąd podczas zapisu danych");
+
+      } catch (error) {
+        alert("Błąd podczas dodawania wydatku: " + error.message);
+      }
+    }
+
+    // Aktualizacja wydatku (usuń i dodaj ponownie lub jeśli masz dedykowaną metodę update - użyj jej)
+    async function updateExpense(index, expense) {
+      // Możemy zaimplementować delete + add albo update jeśli wspierane
+      // Tu uproszczenie: usunięcie oryginału + dodanie nowego (w praktyce lepiej update)
+
+      // Najpierw usuń oryginał
+      const original = expensesData[index];
+      if (!original) return;
+
+      try {
+        const urlDelete = new URL(SCRIPT_URL);
+        urlDelete.searchParams.append("action", "deleteData");
+        urlDelete.searchParams.append("data", JSON.stringify(original));
+
+        const resDelete = await fetch(urlDelete.toString(), { method: "POST" });
+        if (!resDelete.ok) throw new Error("Błąd usuwania starego rekordu");
+
+        // Następnie dodaj nowy
+        await addExpense(expense);
+
+      } catch (error) {
+        alert("Błąd podczas aktualizacji wydatku: " + error.message);
+      }
+    }
+
+    // Wyczyść filtry
+    document.getElementById("clearFilters").addEventListener("click", () => {
+      ["filterDodajacy", "filterKtoPlaci", "filterPomieszczenie", "filterKategoria", "filterNazwa", "filterModel"].forEach(id => {
+        document.getElementById(id).value = "";
+      });
+      applyFiltersAndRender();
+    });
+
+    // Obsługa filtrów na żywo
+    ["filterDodajacy", "filterKtoPlaci", "filterPomieszczenie", "filterKategoria", "filterNazwa", "filterModel"].forEach(id => {
+      document.getElementById(id).addEventListener("input", applyFiltersAndRender);
+    });
+
+  // === WYKRES - PODSUMOWANIE WYDATKÓW WG KATEGORII ===
+  let categoryChart = null;
+  function renderChart(data) {
+    // Podsumuj kwoty wg kategorii
+    const sums = {};
     data.forEach(item => {
-      const tr = document.createElement('tr');
-      headers.forEach(h => {
-        const td = document.createElement('td');
-        td.textContent = item[h];
-        tr.appendChild(td);
-      });
-
-      // Akcje: Edytuj, Usuń
-      const actionTd = document.createElement('td');
-      const editBtn = document.createElement('button');
-      editBtn.textContent = 'Edytuj';
-      editBtn.onclick = () => startEdit(item);
-      actionTd.appendChild(editBtn);
-
-      const delBtn = document.createElement('button');
-      delBtn.textContent = 'Usuń';
-      delBtn.onclick = () => deleteExpense(item.ID);
-      actionTd.appendChild(delBtn);
-
-      tr.appendChild(actionTd);
-      tbody.appendChild(tr);
+      const cat = item.kategoria || "Brak kategorii";
+      sums[cat] = (sums[cat] || 0) + item.kwota;
     });
-  }
+    const labels = Object.keys(sums);
+    const values = labels.map(k => sums[k]);
 
-  // Wypełnij formularz danymi do edycji
-  function startEdit(item) {
-    editingID = item.ID;
-    for (const key in item) {
-      const el = document.getElementById(key);
-      if (el) el.value = item[key];
+    const ctx = document.getElementById("categoryChart").getContext("2d");
+
+    if (categoryChart) {
+      categoryChart.data.labels = labels;
+      categoryChart.data.datasets[0].data = values;
+      categoryChart.update();
+    } else {
+      categoryChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [{
+            label: "Kwota wydatków (PLN)",
+            data: values,
+            backgroundColor: "rgba(54, 162, 235, 0.7)"
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: true },
+            tooltip: { enabled: true }
+          },
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
     }
   }
 
-  // Anuluj edycję
-  document.getElementById('cancelEdit').onclick = () => {
-    editingID = null;
-    document.getElementById('expenseForm').reset();
-  };
+  // === GENEROWANIE PDF Z TABELĄ I WYKRESEM ===
+  document.getElementById("exportPdfBtn").addEventListener("click", async () => {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'pt', 'a4');
 
-  // Obsługa zapisu formularza
-  document.getElementById('expenseForm').onsubmit = async (e) => {
-    e.preventDefault();
+    // Chwytamy tabelę i wykres jako canvas
+    const table = document.getElementById("expensesTable");
+    const chart = document.getElementById("categoryChart");
 
-    const expense = {};
-    const fields = ['ID', 'Nr dokumentu', 'Kategoria', 'Pomieszczenie', 'Data', 'Nazwa produktu', 'Model produktu', 'Kwota'];
-    fields.forEach(f => {
-      const el = document.getElementById(f);
-      expense[f] = el ? el.value : '';
+    // Najpierw tabela
+    await html2canvas(table, { scale: 2 }).then(canvas => {
+      const imgData = canvas.toDataURL("image/png");
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth() - 40;
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      pdf.addImage(imgData, 'PNG', 20, 20, pdfWidth, pdfHeight);
     });
 
-    try {
-      let url;
-      let method;
-      if (editingID) {
-        // Edycja
-        url = SCRIPT_URL + '?action=updateExpense';
-        method = 'POST';
-      } else {
-        // Dodanie nowego - generujemy unikalne ID
-        expense.ID = Date.now().toString();
-        url = SCRIPT_URL + '?action=addExpense';
-        method = 'POST';
-      }
+    // Potem wykres (na drugiej stronie)
+    pdf.addPage();
+    await html2canvas(chart, { scale: 2 }).then(canvas => {
+      const imgData = canvas.toDataURL("image/png");
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth() - 40;
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      pdf.addImage(imgData, 'PNG', 20, 20, pdfWidth, pdfHeight);
+    });
 
-      const response = await fetch(url, {
-        method: method,
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(expense)
-      });
-      const result = await response.json();
+    pdf.save("wydatki_mieszkanie56.pdf");
+  });
 
-      if (result.status === 'success') {
-        alert('Zapisano');
-        editingID = null;
-        document.getElementById('expenseForm').reset();
-        loadExpenses();
-      } else {
-        alert('Błąd: ' + result.message);
-      }
-    } catch(err) {
-      alert('Błąd zapisu: ' + err.message);
-    }
-  };
+  // === START ===
+  fetchData();
 
-  // Usuń wydatek
-  async function deleteExpense(id) {
-    if (!confirm('Na pewno chcesz usunąć ten wydatek?')) return;
-    try {
-      const response = await fetch(SCRIPT_URL + '?action=deleteExpense', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ ID: id })
-      });
-      const result = await response.json();
-      if (result.status === 'success') {
-        alert('Usunięto');
-        loadExpenses();
-      } else {
-        alert('Błąd: ' + result.message);
-      }
-    } catch(e) {
-      alert('Błąd usuwania: ' + e.message);
-    }
-  }
-
-  // Załaduj dane przy starcie
-  loadExpenses();
 </script>
 
 </body>
