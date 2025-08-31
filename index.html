@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Wydatki Mieszkanie 56 - Sielskie Podolany</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; background: #f7f7f7; }
     h1 { color: #333; }
@@ -62,7 +63,6 @@
   </table>
 
   <div class="summary" id="summaryText">Do tej pory wydano: 0 zł</div>
-
   <button onclick="downloadPDF()">📄 Pobierz PDF</button>
 
   <div class="charts">
@@ -72,16 +72,22 @@
 
 <script>
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwXoypXjdAHQtXPW6w53FCrqdrJ3LeYpo--zjd97g94zVNBqZsx_ZFe6QlBZe2ydN7jhQ/exec";
-  let expensesData = [];
+let expensesData = [];
 
+// Pobranie danych z Google Sheets
 async function fetchExpenses() {
-  const res = await fetch(SCRIPT_URL);
-  expensesData = await res.json();
-  renderTable(expensesData);
-  updateCharts(expensesData);
-  updateSummary(expensesData);
+  try {
+    const res = await fetch(SCRIPT_URL);
+    expensesData = await res.json();
+    renderTable(expensesData);
+    updateCharts(expensesData);
+    updateSummary(expensesData);
+  } catch(e) {
+    console.error("Błąd fetch:", e);
+  }
 }
 
+// Render tabeli
 function renderTable(data) {
   const tbody = document.querySelector("#expensesTable tbody");
   tbody.innerHTML = "";
@@ -106,40 +112,34 @@ function renderTable(data) {
   });
 }
 
+// Dodawanie / aktualizacja
 document.getElementById("expenseForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const expense = {
-    data: document.getElementById("data").value,
-    typ: document.getElementById("typ").value,
-    nazwa: document.getElementById("nazwa").value,
-    model: document.getElementById("model").value,
-    pomieszczenie: document.getElementById("pomieszczenie").value,
-    kategoria: document.getElementById("kategoria").value,
-    kwota: parseFloat(document.getElementById("kwota").value),
-    dokument: document.getElementById("dokument").value,
-    dodajacy: document.getElementById("dodajacy").value,
-    kto_placi: document.getElementById("kto_placi").value
-  };
 
+  const formData = new FormData();
   const rowNum = document.getElementById("rowNum").value;
-  if (rowNum) {
-    expense._rowNum = parseInt(rowNum);
-    expense.action = "updateData";
-  } else {
-    expense.action = "addData";
-  }
 
-  await fetch(SCRIPT_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(expense)
-  });
+  formData.append("action", rowNum ? "updateData" : "addData");
+  formData.append("rowNum", rowNum);
+  formData.append("data", document.getElementById("data").value);
+  formData.append("typ", document.getElementById("typ").value);
+  formData.append("nazwa", document.getElementById("nazwa").value);
+  formData.append("model", document.getElementById("model").value);
+  formData.append("pomieszczenie", document.getElementById("pomieszczenie").value);
+  formData.append("kategoria", document.getElementById("kategoria").value);
+  formData.append("kwota", document.getElementById("kwota").value);
+  formData.append("dokument", document.getElementById("dokument").value);
+  formData.append("dodajacy", document.getElementById("dodajacy").value);
+  formData.append("kto_placi", document.getElementById("kto_placi").value);
+
+  await fetch(SCRIPT_URL, { method: "POST", body: formData });
 
   document.getElementById("expenseForm").reset();
   document.getElementById("rowNum").value = "";
   fetchExpenses();
 });
 
+// Edycja
 function editExpense(index) {
   const exp = expensesData[index];
   document.getElementById("rowNum").value = exp._rowNum;
@@ -155,19 +155,22 @@ function editExpense(index) {
   document.getElementById("kto_placi").value = exp.kto_placi;
 }
 
+// Usuwanie
 async function deleteExpense(index) {
   const exp = expensesData[index];
-  if (!confirm("Na pewno usunąć ten wydatek?")) return;
+  if(!confirm("Na pewno usunąć ten wydatek?")) return;
 
-  await fetch(SCRIPT_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "deleteData", data: exp.data, typ: exp.typ, kwota: exp.kwota })
-  });
+  const formData = new FormData();
+  formData.append("action", "deleteData");
+  formData.append("data", exp.data);
+  formData.append("typ", exp.typ);
+  formData.append("kwota", exp.kwota);
 
+  await fetch(SCRIPT_URL, { method: "POST", body: formData });
   fetchExpenses();
 }
 
+// Filtry
 function applyFilters() {
   const k = document.getElementById("filterKategoria").value.toLowerCase();
   const p = document.getElementById("filterPomieszczenie").value.toLowerCase();
@@ -180,6 +183,7 @@ function applyFilters() {
     (!n || e.nazwa.toLowerCase().includes(n)) &&
     (!m || e.model.toLowerCase().includes(m))
   );
+
   renderTable(filtered);
   updateCharts(filtered);
   updateSummary(filtered);
@@ -195,45 +199,46 @@ function resetFilters() {
   updateSummary(expensesData);
 }
 
+// Podsumowanie
 function updateSummary(data) {
-  const sum = data.reduce((a, b) => a + parseFloat(b.kwota || 0), 0);
+  const sum = data.reduce((a,b)=>a+parseFloat(b.kwota||0),0);
   document.getElementById("summaryText").innerText = `Do tej pory wydano: ${sum.toFixed(2)} zł`;
 }
 
-// wykresy
+// Wykresy
 let categoryChart, timeChart;
 function updateCharts(data) {
   const byCategory = {};
   const byMonth = {};
-  data.forEach(e => {
-    byCategory[e.kategoria] = (byCategory[e.kategoria] || 0) + parseFloat(e.kwota || 0);
+  data.forEach(e=>{
+    byCategory[e.kategoria] = (byCategory[e.kategoria]||0)+parseFloat(e.kwota||0);
     const month = e.data ? e.data.slice(0,7) : "brak";
-    byMonth[month] = (byMonth[month] || 0) + parseFloat(e.kwota || 0);
+    byMonth[month] = (byMonth[month]||0)+parseFloat(e.kwota||0);
   });
 
-  if (categoryChart) categoryChart.destroy();
-  if (timeChart) timeChart.destroy();
+  if(categoryChart) categoryChart.destroy();
+  if(timeChart) timeChart.destroy();
 
   categoryChart = new Chart(document.getElementById("categoryChart"), {
-    type: "pie",
-    data: { labels: Object.keys(byCategory), datasets: [{ data: Object.values(byCategory) }] }
+    type:"pie",
+    data:{ labels: Object.keys(byCategory), datasets:[{ data: Object.values(byCategory) }] }
   });
 
   timeChart = new Chart(document.getElementById("timeChart"), {
-    type: "line",
-    data: { labels: Object.keys(byMonth), datasets: [{ label: "Wydatki w czasie", data: Object.values(byMonth) }] }
+    type:"line",
+    data:{ labels: Object.keys(byMonth), datasets:[{ label:"Wydatki w czasie", data:Object.values(byMonth) }] }
   });
 }
 
-// eksport do PDF
+// PDF
 function downloadPDF() {
   const element = document.body;
-  const opt = { margin: 0.5, filename: "wydatki.pdf", image: { type: "jpeg", quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: "in", format: "a4", orientation: "portrait" } };
+  const opt = { margin:0.5, filename:"wydatki.pdf", image:{type:"jpeg", quality:0.98}, html2canvas:{scale:2}, jsPDF:{unit:"in", format:"a4", orientation:"portrait"} };
   html2pdf().set(opt).from(element).save();
 }
 
 window.onload = fetchExpenses;
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
 </body>
 </html>
