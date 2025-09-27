@@ -71,9 +71,15 @@
   </div>
 
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxRKlfDbCjsnWWNIQmfPHOCDYfnceDOScuqMo39dHLEF9_9qvkktJSG5x8xXLiPy8rk9g/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9am9iiUciJ4Rhbe2Z7EkLgCcRVFi1JTeNNeAn4QuGIfw5jUCYIutfk48Qc0r7gyL1vg/exec";
 let expensesData = [];
-
+const response = await fetch(SCRIPT_URL, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(expense)
+});
+const result = await response.json();
+console.log(result);
 // Pobranie danych z Google Sheets
 async function fetchExpenses() {
   try {
