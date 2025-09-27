@@ -20,67 +20,61 @@
 </head>
 <body>
 
-  <h1>💰 Wydatki - Mieszkanie 56</h1>
-  <img src="https://jakon-inwest.pl/upload/pictures/budynekb.jpg" alt="Nagłówek" style="max-width:100%; border-radius:10px; margin-bottom:20px;">
+<h1>💰 Wydatki - Mieszkanie 56</h1>
+<img src="https://jakon-inwest.pl/upload/pictures/budynekb.jpg" alt="Nagłówek" style="max-width:100%; border-radius:10px; margin-bottom:20px;">
 
-  <div class="form-container">
-    <h3>Dodaj / Edytuj wydatek</h3>
-    <form id="expenseForm">
-      <input type="hidden" id="rowNum">
-      Data: <input type="date" id="data" required>
-      Typ: <input type="text" id="typ" required>
-      Nazwa: <input type="text" id="nazwa">
-      Model: <input type="text" id="model">
-      Pomieszczenie: <input type="text" id="pomieszczenie">
-      Kategoria: <input type="text" id="kategoria">
-      Kwota: <input type="number" id="kwota" step="0.01" required>
-      Dokument: <input type="text" id="dokument">
-      Dodający: <input type="text" id="dodajacy">
-      Kto płaci: <input type="text" id="kto_placi">
-      <button type="submit">💾 Zapisz</button>
-    </form>
-  </div>
+<div class="form-container">
+  <h3>Dodaj / Edytuj wydatek</h3>
+  <form id="expenseForm">
+    <input type="hidden" id="rowNum">
+    Data: <input type="date" id="data" required>
+    Typ: <input type="text" id="typ" required>
+    Nazwa: <input type="text" id="nazwa">
+    Model: <input type="text" id="model">
+    Pomieszczenie: <input type="text" id="pomieszczenie">
+    Kategoria: <input type="text" id="kategoria">
+    Kwota: <input type="number" id="kwota" step="0.01" required>
+    Dokument: <input type="text" id="dokument">
+    Dodający: <input type="text" id="dodajacy">
+    Kto płaci: <input type="text" id="kto_placi">
+    <button type="submit">💾 Zapisz</button>
+  </form>
+</div>
 
-  <div class="filters">
-    <h3>Filtry</h3>
-    Kategoria: <input type="text" id="filterKategoria">
-    Pomieszczenie: <input type="text" id="filterPomieszczenie">
-    Nazwa: <input type="text" id="filterNazwa">
-    Model: <input type="text" id="filterModel">
-    <button onclick="applyFilters()">🔍 Filtruj</button>
-    <button onclick="resetFilters()">♻️ Reset</button>
-  </div>
+<div class="filters">
+  <h3>Filtry</h3>
+  Kategoria: <input type="text" id="filterKategoria">
+  Pomieszczenie: <input type="text" id="filterPomieszczenie">
+  Nazwa: <input type="text" id="filterNazwa">
+  Model: <input type="text" id="filterModel">
+  <button onclick="applyFilters()">🔍 Filtruj</button>
+  <button onclick="resetFilters()">♻️ Reset</button>
+</div>
 
-  <table id="expensesTable">
-    <thead>
-      <tr>
-        <th>Data</th><th>Typ</th><th>Nazwa</th><th>Model</th>
-        <th>Pomieszczenie</th><th>Kategoria</th><th>Kwota</th>
-        <th>Dokument</th><th>Dodający</th><th>Kto płaci</th><th>Akcje</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+<table id="expensesTable">
+  <thead>
+    <tr>
+      <th>Data</th><th>Typ</th><th>Nazwa</th><th>Model</th>
+      <th>Pomieszczenie</th><th>Kategoria</th><th>Kwota</th>
+      <th>Dokument</th><th>Dodający</th><th>Kto płaci</th><th>Akcje</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
 
-  <div class="summary" id="summaryText">Do tej pory wydano: 0 zł</div>
-  <button onclick="downloadPDF()">📄 Pobierz PDF</button>
+<div class="summary" id="summaryText">Do tej pory wydano: 0 zł</div>
+<button onclick="downloadPDF()">📄 Pobierz PDF</button>
 
-  <div class="charts">
-    <div class="chart-box"><canvas id="categoryChart"></canvas></div>
-    <div class="chart-box"><canvas id="timeChart"></canvas></div>
-  </div>
+<div class="charts">
+  <div class="chart-box"><canvas id="categoryChart"></canvas></div>
+  <div class="chart-box"><canvas id="timeChart"></canvas></div>
+</div>
 
 <script>
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9am9iiUciJ4Rhbe2Z7EkLgCcRVFi1JTeNNeAn4QuGIfw5jUCYIutfk48Qc0r7gyL1vg/exec";
 let expensesData = [];
-const response = await fetch(SCRIPT_URL, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(expense)
-});
-const result = await response.json();
-console.log(result);
-// Pobranie danych z Google Sheets
+let categoryChart, timeChart;
+
 async function fetchExpenses() {
   try {
     const res = await fetch(SCRIPT_URL);
@@ -93,7 +87,6 @@ async function fetchExpenses() {
   }
 }
 
-// Render tabeli
 function renderTable(data) {
   const tbody = document.querySelector("#expensesTable tbody");
   tbody.innerHTML = "";
@@ -118,15 +111,12 @@ function renderTable(data) {
   });
 }
 
-// Dodawanie / aktualizacja
 document.getElementById("expenseForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-
   const rowNum = document.getElementById("rowNum").value;
-
   const expense = {
     action: rowNum ? "updateData" : "addData",
-    rowNum: rowNum,
+    rowNum,
     data: document.getElementById("data").value,
     typ: document.getElementById("typ").value,
     nazwa: document.getElementById("nazwa").value,
@@ -138,44 +128,35 @@ document.getElementById("expenseForm").addEventListener("submit", async (e) => {
     dodajacy: document.getElementById("dodajacy").value,
     kto_placi: document.getElementById("kto_placi").value
   };
-
-  await fetch(SCRIPT_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(expense)
-  });
-
-  document.getElementById("expenseForm").reset();
-  document.getElementById("rowNum").value = "";
-  fetchExpenses();
+  try {
+    await fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(expense)
+    });
+    document.getElementById("expenseForm").reset();
+    document.getElementById("rowNum").value = "";
+    fetchExpenses();
+  } catch(e) { console.error("Błąd zapisu:", e); }
 });
 
-// Usuwanie
 async function deleteExpense(index) {
   const exp = expensesData[index];
   if(!confirm("Na pewno usunąć ten wydatek?")) return;
-
-  const payload = {
-    action: "deleteData",
-    data: exp.data,
-    typ: exp.typ,
-    kwota: exp.kwota
-  };
-
-  await fetch(SCRIPT_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-
-  fetchExpenses();
+  const payload = { action: "deleteData", data: exp.data, typ: exp.typ, kwota: exp.kwota };
+  try {
+    await fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    fetchExpenses();
+  } catch(e) { console.error("Błąd usuwania:", e); }
 }
 
-
-// Edycja
 function editExpense(index) {
   const exp = expensesData[index];
-  document.getElementById("rowNum").value = exp._rowNum;
+  document.getElementById("rowNum").value = exp._rowNum || index;
   document.getElementById("data").value = exp.data;
   document.getElementById("typ").value = exp.typ;
   document.getElementById("nazwa").value = exp.nazwa;
@@ -188,22 +169,17 @@ function editExpense(index) {
   document.getElementById("kto_placi").value = exp.kto_placi;
 }
 
-
-
-// Filtry
 function applyFilters() {
   const k = document.getElementById("filterKategoria").value.toLowerCase();
   const p = document.getElementById("filterPomieszczenie").value.toLowerCase();
   const n = document.getElementById("filterNazwa").value.toLowerCase();
   const m = document.getElementById("filterModel").value.toLowerCase();
-
   const filtered = expensesData.filter(e =>
-    (!k || e.kategoria.toLowerCase().includes(k)) &&
-    (!p || e.pomieszczenie.toLowerCase().includes(p)) &&
-    (!n || e.nazwa.toLowerCase().includes(n)) &&
-    (!m || e.model.toLowerCase().includes(m))
+    (!k || (e.kategoria||"").toLowerCase().includes(k)) &&
+    (!p || (e.pomieszczenie||"").toLowerCase().includes(p)) &&
+    (!n || (e.nazwa||"").toLowerCase().includes(n)) &&
+    (!m || (e.model||"").toLowerCase().includes(m))
   );
-
   renderTable(filtered);
   updateCharts(filtered);
   updateSummary(filtered);
@@ -219,46 +195,40 @@ function resetFilters() {
   updateSummary(expensesData);
 }
 
-// Podsumowanie
 function updateSummary(data) {
-  const sum = data.reduce((a,b)=>a+parseFloat(b.kwota||0),0);
-  document.getElementById("summaryText").innerText = `Do tej pory wydano: ${sum.toFixed(2)} zł`;
+  const total = data.reduce((sum,e)=>sum + parseFloat(e.kwota||0),0);
+  document.getElementById("summaryText").innerText = `Do tej pory wydano: ${total.toFixed(2)} zł`;
 }
 
-// Wykresy
-let categoryChart, timeChart;
 function updateCharts(data) {
-  const byCategory = {};
-  const byMonth = {};
-  data.forEach(e=>{
-    byCategory[e.kategoria] = (byCategory[e.kategoria]||0)+parseFloat(e.kwota||0);
-    const month = e.data ? e.data.slice(0,7) : "brak";
-    byMonth[month] = (byMonth[month]||0)+parseFloat(e.kwota||0);
-  });
-
+  const categorySums = {};
+  data.forEach(e => { if(e.kategoria) categorySums[e.kategoria] = (categorySums[e.kategoria]||0) + parseFloat(e.kwota||0); });
+  const catLabels = Object.keys(categorySums);
+  const catValues = Object.values(categorySums);
   if(categoryChart) categoryChart.destroy();
-  if(timeChart) timeChart.destroy();
-
   categoryChart = new Chart(document.getElementById("categoryChart"), {
-    type:"pie",
-    data:{ labels: Object.keys(byCategory), datasets:[{ data: Object.values(byCategory) }] }
+    type: "pie",
+    data: { labels: catLabels, datasets: [{ label: "Wydatki", data: catValues, backgroundColor: catLabels.map(()=>`hsl(${Math.random()*360},70%,70%)`) }] }
   });
 
+  const monthSums = {};
+  data.forEach(e => { if(e.data) { const m = e.data.slice(0,7); monthSums[m] = (monthSums[m]||0)+parseFloat(e.kwota||0); } });
+  const monthLabels = Object.keys(monthSums).sort();
+  const monthValues = monthLabels.map(m=>monthSums[m]);
+  if(timeChart) timeChart.destroy();
   timeChart = new Chart(document.getElementById("timeChart"), {
-    type:"line",
-    data:{ labels: Object.keys(byMonth), datasets:[{ label:"Wydatki w czasie", data:Object.values(byMonth) }] }
+    type: "line",
+    data: { labels: monthLabels, datasets: [{ label: "Wydatki miesięczne", data: monthValues, borderColor: "blue", backgroundColor: "lightblue" }] },
+    options: { responsive: true, maintainAspectRatio: false }
   });
 }
 
-// PDF
 function downloadPDF() {
-  const element = document.body;
-  const opt = { margin:0.5, filename:"wydatki.pdf", image:{type:"jpeg", quality:0.98}, html2canvas:{scale:2}, jsPDF:{unit:"in", format:"a4", orientation:"portrait"} };
-  html2pdf().set(opt).from(element).save();
+  html2pdf().from(document.body).set({ margin:0.5, filename:'wydatki.pdf' }).save();
 }
 
-window.onload = fetchExpenses;
+// Pobranie danych przy starcie
+fetchExpenses();
 </script>
-
 </body>
 </html>
