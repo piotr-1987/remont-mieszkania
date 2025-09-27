@@ -71,7 +71,7 @@
   </div>
 
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwWUZ0M4MnHEm44w8f1O6GE8YlcdqyyfPzGER3HQquxmX8npJ4PWWdkFm6-Of6HDnNABA/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxRKlfDbCjsnWWNIQmfPHOCDYfnceDOScuqMo39dHLEF9_9qvkktJSG5x8xXLiPy8rk9g/exec";
 let expensesData = [];
 
 // Pobranie danych z Google Sheets
@@ -116,28 +116,55 @@ function renderTable(data) {
 document.getElementById("expenseForm").addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  const formData = new FormData();
   const rowNum = document.getElementById("rowNum").value;
 
-  formData.append("action", rowNum ? "updateData" : "addData");
-  formData.append("rowNum", rowNum);
-  formData.append("data", document.getElementById("data").value);
-  formData.append("typ", document.getElementById("typ").value);
-  formData.append("nazwa", document.getElementById("nazwa").value);
-  formData.append("model", document.getElementById("model").value);
-  formData.append("pomieszczenie", document.getElementById("pomieszczenie").value);
-  formData.append("kategoria", document.getElementById("kategoria").value);
-  formData.append("kwota", document.getElementById("kwota").value);
-  formData.append("dokument", document.getElementById("dokument").value);
-  formData.append("dodajacy", document.getElementById("dodajacy").value);
-  formData.append("kto_placi", document.getElementById("kto_placi").value);
+  const expense = {
+    action: rowNum ? "updateData" : "addData",
+    rowNum: rowNum,
+    data: document.getElementById("data").value,
+    typ: document.getElementById("typ").value,
+    nazwa: document.getElementById("nazwa").value,
+    model: document.getElementById("model").value,
+    pomieszczenie: document.getElementById("pomieszczenie").value,
+    kategoria: document.getElementById("kategoria").value,
+    kwota: document.getElementById("kwota").value,
+    dokument: document.getElementById("dokument").value,
+    dodajacy: document.getElementById("dodajacy").value,
+    kto_placi: document.getElementById("kto_placi").value
+  };
 
-  await fetch(SCRIPT_URL, { method: "POST", body: formData });
+  await fetch(SCRIPT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(expense)
+  });
 
   document.getElementById("expenseForm").reset();
   document.getElementById("rowNum").value = "";
   fetchExpenses();
 });
+
+// Usuwanie
+async function deleteExpense(index) {
+  const exp = expensesData[index];
+  if(!confirm("Na pewno usunąć ten wydatek?")) return;
+
+  const payload = {
+    action: "deleteData",
+    data: exp.data,
+    typ: exp.typ,
+    kwota: exp.kwota
+  };
+
+  await fetch(SCRIPT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  fetchExpenses();
+}
+
 
 // Edycja
 function editExpense(index) {
@@ -155,20 +182,7 @@ function editExpense(index) {
   document.getElementById("kto_placi").value = exp.kto_placi;
 }
 
-// Usuwanie
-async function deleteExpense(index) {
-  const exp = expensesData[index];
-  if(!confirm("Na pewno usunąć ten wydatek?")) return;
 
-  const formData = new FormData();
-  formData.append("action", "deleteData");
-  formData.append("data", exp.data);
-  formData.append("typ", exp.typ);
-  formData.append("kwota", exp.kwota);
-
-  await fetch(SCRIPT_URL, { method: "POST", body: formData });
-  fetchExpenses();
-}
 
 // Filtry
 function applyFilters() {
