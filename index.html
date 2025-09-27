@@ -14,7 +14,7 @@
     th { background: #eee; }
     button { padding: 6px 12px; margin: 2px; cursor: pointer; }
     .charts { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px; }
-    .chart-box { flex: 1 1 45%; background: #fff; padding: 10px; border-radius: 8px; }
+    .chart-box { flex: 1 1 45%; background: #fff; padding: 10px; border-radius: 8px; height: 300px; }
     .summary { font-weight: bold; font-size: 1.1em; margin-top: 10px; }
   </style>
 </head>
@@ -71,7 +71,7 @@
 </div>
 
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPzcoXtTX75MtVxMt7YIBHSDL7yMARp0ForWabxl0gViD4xqfiAt7nc6aJn1fXjO-cWg/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyhGpq5_IG6muSAtaTA24fvBBXgt-ORjJfexOSop9cbwYLbN39XG0HojHBsT_gQBw4WVg/exec";
 let expensesData = [];
 let categoryChart, timeChart;
 
@@ -82,9 +82,7 @@ async function fetchExpenses() {
     renderTable(expensesData);
     updateCharts(expensesData);
     updateSummary(expensesData);
-  } catch(e) {
-    console.error("Błąd fetch:", e);
-  }
+  } catch(e) { console.error("Błąd fetch:", e); }
 }
 
 function renderTable(data) {
@@ -123,7 +121,7 @@ document.getElementById("expenseForm").addEventListener("submit", async (e) => {
     model: document.getElementById("model").value,
     pomieszczenie: document.getElementById("pomieszczenie").value,
     kategoria: document.getElementById("kategoria").value,
-    kwota: document.getElementById("kwota").value,
+    kwota: parseFloat(document.getElementById("kwota").value),
     dokument: document.getElementById("dokument").value,
     dodajacy: document.getElementById("dodajacy").value,
     kto_placi: document.getElementById("kto_placi").value
@@ -143,7 +141,7 @@ document.getElementById("expenseForm").addEventListener("submit", async (e) => {
 async function deleteExpense(index) {
   const exp = expensesData[index];
   if(!confirm("Na pewno usunąć ten wydatek?")) return;
-  const payload = { action: "deleteData", data: exp.data, typ: exp.typ, kwota: exp.kwota };
+  const payload = { action: "deleteData", rowNum: exp._rowNum || index };
   try {
     await fetch(SCRIPT_URL, {
       method: "POST",
@@ -174,12 +172,14 @@ function applyFilters() {
   const p = document.getElementById("filterPomieszczenie").value.toLowerCase();
   const n = document.getElementById("filterNazwa").value.toLowerCase();
   const m = document.getElementById("filterModel").value.toLowerCase();
-  const filtered = expensesData.filter(e =>
-    (!k || (e.kategoria||"").toLowerCase().includes(k)) &&
-    (!p || (e.pomieszczenie||"").toLowerCase().includes(p)) &&
-    (!n || (e.nazwa||"").toLowerCase().includes(n)) &&
-    (!m || (e.model||"").toLowerCase().includes(m))
+
+  const filtered = expensesData.filter(exp =>
+    (k ? exp.kategoria.toLowerCase().includes(k) : true) &&
+    (p ? exp.pomieszczenie.toLowerCase().includes(p) : true) &&
+    (n ? exp.nazwa.toLowerCase().includes(n) : true) &&
+    (m ? exp.model.toLowerCase().includes(m) : true)
   );
+
   renderTable(filtered);
   updateCharts(filtered);
   updateSummary(filtered);
@@ -196,39 +196,45 @@ function resetFilters() {
 }
 
 function updateSummary(data) {
-  const total = data.reduce((sum,e)=>sum + parseFloat(e.kwota||0),0);
-  document.getElementById("summaryText").innerText = `Do tej pory wydano: ${total.toFixed(2)} zł`;
+  const sum = data.reduce((acc, e) => acc + parseFloat(e.kwota || 0), 0);
+  document.getElementById("summaryText").textContent = `Do tej pory wydano: ${sum.toFixed(2)} zł`;
 }
 
 function updateCharts(data) {
-  const categorySums = {};
-  data.forEach(e => { if(e.kategoria) categorySums[e.kategoria] = (categorySums[e.kategoria]||0) + parseFloat(e.kwota||0); });
-  const catLabels = Object.keys(categorySums);
-  const catValues = Object.values(categorySums);
+  // Dane wg kategorii
+  const categories = {};
+  data.forEach(e => {
+    categories[e.kategoria] = (categories[e.kategoria] || 0) + parseFloat(e.kwota || 0);
+  });
+  const catLabels = Object.keys(categories);
+  const catValues = Object.values(categories);
+
   if(categoryChart) categoryChart.destroy();
-  categoryChart = new Chart(document.getElementById("categoryChart"), {
+  const ctx1 = document.getElementById("categoryChart").getContext("2d");
+  categoryChart = new Chart(ctx1, {
     type: "pie",
-    data: { labels: catLabels, datasets: [{ label: "Wydatki", data: catValues, backgroundColor: catLabels.map(()=>`hsl(${Math.random()*360},70%,70%)`) }] }
+    data: { labels: catLabels, datasets: [{ data: catValues, backgroundColor: catLabels.map(() => '#'+Math.floor(Math.random()*16777215).toString(16)) }] }
   });
 
-  const monthSums = {};
-  data.forEach(e => { if(e.data) { const m = e.data.slice(0,7); monthSums[m] = (monthSums[m]||0)+parseFloat(e.kwota||0); } });
-  const monthLabels = Object.keys(monthSums).sort();
-  const monthValues = monthLabels.map(m=>monthSums[m]);
+  // Dane wg czasu (daty)
+  const timeMap = {};
+  data.forEach(e => { timeMap[e.data] = (timeMap[e.data] || 0) + parseFloat(e.kwota || 0); });
+  const timeLabels = Object.keys(timeMap).sort();
+  const timeValues = timeLabels.map(l => timeMap[l]);
+
   if(timeChart) timeChart.destroy();
-  timeChart = new Chart(document.getElementById("timeChart"), {
-    type: "line",
-    data: { labels: monthLabels, datasets: [{ label: "Wydatki miesięczne", data: monthValues, borderColor: "blue", backgroundColor: "lightblue" }] },
-    options: { responsive: true, maintainAspectRatio: false }
+  const ctx2 = document.getElementById("timeChart").getContext("2d");
+  timeChart = new Chart(ctx2, {
+    type: "bar",
+    data: { labels: timeLabels, datasets: [{ label: "Kwota", data: timeValues, backgroundColor: '#4e73df' }] },
+    options: { scales: { y: { beginAtZero: true } } }
   });
 }
 
 function downloadPDF() {
-  html2pdf().from(document.body).set({ margin:0.5, filename:'wydatki.pdf' }).save();
+  const element = document.body;
+  html2pdf().set({ margin: 0.5, filename: 'wydatki_mieszkanie56.pdf', html2canvas: { scale: 2 } }).from(element).save();
 }
 
-// Pobranie danych przy starcie
+// inicjalizacja
 fetchExpenses();
-</script>
-</body>
-</html>
